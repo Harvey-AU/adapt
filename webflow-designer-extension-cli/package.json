@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "compile": "tsc -p tsconfig.json",
-    "build": "npm install && npm run compile && webflow extension bundle",
-    "dev": "npm install && concurrently -r \"webflow extension serve\" \"npm run compile -- --watch --preserveWatchOutput\"",
+    "build": "npm install && npm run compile && npx webflow extension bundle",
+    "dev": "npm install && concurrently -r \"npx webflow extension serve\" \"npm run compile -- --watch --preserveWatchOutput\"",
     "lint": "eslint . --ext .ts",
     "format:check": "prettier --check \"./**/*.{ts,json,md,html,css,yml,yaml}\"",
     "format:write": "prettier --write \"./**/*.{ts,json,md,html,css,yml,yaml}\""
   },
   "devDependencies": {
+    "@webflow/webflow-cli": "^1.8.40",
     "@webflow/designer-extension-typings": "^2.0.2",
     "@typescript-eslint/eslint-plugin": "^7.7.0",
     "@typescript-eslint/parser": "^7.7.0",
