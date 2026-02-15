@@ -1243,7 +1243,7 @@ async function handlePasswordReset(event) {
  * Handle social login (Google, GitHub)
  * @param {string} provider - OAuth provider name
  */
-async function handleSocialLogin(provider) {
+async function handleSocialLogin(provider, options = {}) {
   showAuthLoading();
   clearAuthError();
 
@@ -1257,10 +1257,15 @@ async function handleSocialLogin(provider) {
       return getOAuthCallbackURL({ invite_token: inviteToken || undefined });
     };
 
+    const redirectOverride =
+      options.redirectTo ||
+      window.BB_APP?.oauthRedirectOverride ||
+      (window.BB_APP?.extensionAuth ? window.location.href : "");
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: getOAuthRedirectTarget(),
+        redirectTo: redirectOverride || getOAuthRedirectTarget(),
       },
     });
 
@@ -1277,6 +1282,10 @@ async function handleSocialLogin(provider) {
     }
     showAuthError(error.message || `${provider} login failed.`);
     hideAuthLoading();
+  } finally {
+    if (window.BB_APP?.oauthRedirectOverride) {
+      delete window.BB_APP.oauthRedirectOverride;
+    }
   }
 }
 
@@ -2173,37 +2182,6 @@ function initExtensionAuthPage() {
     };
   }
 
-  function overrideHandleSocialLogin() {
-    window.handleSocialLogin = async function (provider) {
-      if (typeof window.showAuthLoading === "function") {
-        window.showAuthLoading();
-      }
-      if (typeof window.clearAuthError === "function") {
-        window.clearAuthError();
-      }
-
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: window.location.href,
-          },
-        });
-
-        if (error) throw error;
-      } catch (error) {
-        console.error("Extension social login failed:", error);
-        if (typeof window.showAuthError === "function") {
-          window.showAuthError(error.message || `${provider} login failed.`);
-        }
-        if (typeof window.hideAuthLoading === "function") {
-          window.hideAuthLoading();
-        }
-        setStatus(error.message || `${provider} login failed.`, true);
-      }
-    };
-  }
-
   if (reopenButton) {
     reopenButton.addEventListener("click", () => {
       if (typeof window.showAuthModal === "function") {
@@ -2233,7 +2211,6 @@ function initExtensionAuthPage() {
         window.setupAuthHandlers();
       }
       overrideHandleAuthSuccess();
-      overrideHandleSocialLogin();
       if (typeof window.showLoginForm === "function") {
         window.showLoginForm();
       }
