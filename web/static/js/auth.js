@@ -2279,7 +2279,6 @@ if (typeof module !== "undefined" && module.exports) {
     initAuthCallbackPage,
     initCliAuthPage,
     initExtensionAuthPage,
-    initAuthCallbackPage,
     resumeCliAuthFromStorage,
     setUserAvatar,
     getGravatarUrl,
