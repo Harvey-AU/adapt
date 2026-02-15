@@ -1,7 +1,6 @@
 # Worker Pool Architecture
 
-Blue Banded Bee uses a PostgreSQL-backed worker pool for concurrent task
-processing.
+Adapt uses a PostgreSQL-backed worker pool for concurrent task processing.
 
 ## Core concepts
 

@@ -198,7 +198,7 @@ func (c *SlackChannel) deliverToConnection(ctx context.Context, conn *db.SlackCo
 func (c *SlackChannel) buildMessageBlocks(n *db.Notification) []slack.Block {
 	appURL := os.Getenv("APP_URL")
 	if appURL == "" {
-		appURL = "https://app.bluebandedbee.co"
+		appURL = "https://adapt.app.goodnative.co"
 	}
 
 	// Subject block (already includes emoji from DB)

@@ -28,7 +28,7 @@ DEFAULT_AUTH_URL = os.environ.get("SUPABASE_AUTH_URL", config.SUPABASE_URL)
 DEFAULT_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", config.DEFAULT_SUPABASE_ANON_KEY)
 DEFAULT_PROVIDER = os.environ.get("BBB_AUTH_PROVIDER", "google")
 DEFAULT_CALLBACK_PORT = int(os.environ.get("BBB_AUTH_CALLBACK_PORT", "8765"))
-LOGIN_PAGE_URL = os.environ.get("BBB_LOGIN_URL", "https://app.bluebandedbee.co/cli-login.html")
+LOGIN_PAGE_URL = os.environ.get("BBB_LOGIN_URL", "https://adapt.app.goodnative.co/cli-login.html")
 TOKEN_SKEW_SECONDS = 90
 
 
@@ -43,11 +43,11 @@ def _config_dir() -> Path:
             base = Path.home() / "AppData" / "Roaming"
         else:
             base = Path(base)
-        return Path(base) / "BlueBandedBee" / "auth"
+        return Path(base) / "Adapt" / "auth"
 
     xdg = os.environ.get("XDG_CONFIG_HOME")
     base_path = Path(xdg) if xdg else Path.home() / ".config"
-    return base_path / "blue-banded-bee" / "auth"
+    return base_path / "adapt-app-goodnative" / "auth"
 
 
 CONFIG_DIR = _config_dir()
@@ -145,7 +145,7 @@ class _AuthCallbackHandler(http.server.BaseHTTPRequestHandler):
         host = (parsed.hostname or "").lower()
         if host in {"127.0.0.1", "localhost"}:
             return origin
-        if host == "bluebandedbee.co" or host.endswith(".bluebandedbee.co"):
+        if host == "goodnative.co" or host.endswith(".goodnative.co"):
             return origin
         if host == "fly.dev" or host.endswith(".fly.dev"):
             return origin

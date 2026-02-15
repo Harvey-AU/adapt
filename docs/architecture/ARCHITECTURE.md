@@ -1,11 +1,11 @@
-# Blue Banded Bee Architecture
+# Adapt Architecture
 
 ## System Overview
 
-Blue Banded Bee is a web cache warming service built in Go, designed for Webflow
-sites and other web applications. It uses a worker pool architecture for
-efficient URL crawling and cache warming, with a focus on reliability,
-performance, and observability.
+Adapt is a web cache warming service built in Go, designed for Webflow sites and
+other web applications. It uses a worker pool architecture for efficient URL
+crawling and cache warming, with a focus on reliability, performance, and
+observability.
 
 ## Core Components
 
@@ -174,8 +174,8 @@ CREATE TABLE tasks (
 
 ### Architectural Principles
 
-Blue Banded Bee follows **focused, testable function design** established
-through systematic refactoring:
+Adapt follows **focused, testable function design** established through
+systematic refactoring:
 
 - **Function Size**: Functions kept under 50 lines where possible
 - **Single Responsibility**: Each function has one clear purpose
@@ -246,8 +246,8 @@ through systematic refactoring:
 
 ### Sentry Integration Strategy
 
-Blue Banded Bee uses Sentry for both error tracking and performance monitoring
-with a strategic approach to avoid over-logging.
+Adapt uses Sentry for both error tracking and performance monitoring with a
+strategic approach to avoid over-logging.
 
 #### Configuration
 
@@ -303,8 +303,8 @@ helps diagnose:
 
 ### Template + Data Binding System
 
-Blue Banded Bee uses a template-based approach that allows flexible HTML layouts
-whilst JavaScript provides functionality through attribute-based event handling.
+Adapt uses a template-based approach that allows flexible HTML layouts whilst
+JavaScript provides functionality through attribute-based event handling.
 
 **Current Implementation (v0.5.3):**
 
@@ -472,7 +472,7 @@ patterns and lessons learned.
 
 - ✅ **Notification Badge**: Real-time updates when jobs complete (v0.20.0)
   - Postgres Changes subscription on `notifications` table
-  - WebSocket CSP configured for `wss://auth.bluebandedbee.co`
+  - WebSocket CSP configured for `wss://auth.goodnative.co`
   - 200ms query delay to avoid transaction visibility race condition
 
 **Planned:**

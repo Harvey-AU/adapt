@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup Git hooks for Blue Banded Bee
+# Setup Git hooks for Adapt
 # This configures Git to use hooks from the .githooks/ directory
 
 set -e

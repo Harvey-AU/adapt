@@ -1,7 +1,6 @@
 # Changelog
 
-All notable changes to the Blue Banded Bee project will be documented in this
-file.
+All notable changes to the Adapt project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to
@@ -459,7 +458,7 @@ On merge, CI will:
   - New `users_own_jobs_simple` RLS policy for fast user-based filtering
 - **Realtime Notification Updates**: Badge updates instantly when jobs complete
   - Supabase Postgres Changes subscription for `notifications` table
-  - WebSocket CSP configured for `wss://auth.bluebandedbee.co`
+  - WebSocket CSP configured for `wss://auth.goodnative.co`
   - 200ms delay before querying to avoid transaction visibility race condition
 
 ### Changed
@@ -1535,8 +1534,7 @@ Series of minor optimisations to improve throughput and resource usage.
     in logs if context is logged
   - Addresses Dependabot security alert CVE (indirect dependency via
     OpenTelemetry)
-  - No impact on Blue Banded Bee as we don't log contexts containing gRPC
-    metadata
+  - No impact on Adapt as we don't log contexts containing gRPC metadata
 
 ## [0.7.2] – 2025-10-14
 
@@ -2714,9 +2712,9 @@ Series of minor optimisations to improve throughput and resource usage.
 
 - **Domain References**: Corrected all application URLs to use proper domain
   structure
-  - Updated authentication redirect URLs from `bluebandedbee.co` to
-    `app.bluebandedbee.co`
-  - Fixed API base URLs in Web Components to point to `app.bluebandedbee.co`
+  - Updated authentication redirect URLs from `goodnative.co` to
+    `adapt.app.goodnative.co`
+  - Fixed API base URLs in Web Components to point to `adapt.app.goodnative.co`
   - Updated all script URLs and CDN references in examples and documentation
   - Rebuilt Web Components with correct production URLs
 
@@ -2724,13 +2722,13 @@ Series of minor optimisations to improve throughput and resource usage.
 
 - **Domain Usage Clarification**: Comprehensive documentation of domain
   structure and usage
-  - **Local development**: `http://localhost:8080` - Blue Banded Bee application
-    for local testing
-  - **Production marketing site**: `https://bluebandedbee.co` - Marketing
-    website only
-  - **Production application**: `https://app.bluebandedbee.co` - Live
+  - **Local development**: `http://localhost:8080` - Adapt application for local
+    testing
+  - **Production marketing site**: `https://goodnative.co` - Marketing website
+    only
+  - **Production application**: `https://adapt.app.goodnative.co` - Live
     application, services, demo pages
-  - **Authentication service**: `https://auth.bluebandedbee.co` - Supabase
+  - **Authentication service**: `https://auth.goodnative.co` - Supabase
     authentication (unchanged)
   - Updated all documentation files to clearly specify domain purposes and usage
     contexts
@@ -2840,7 +2838,7 @@ Series of minor optimisations to improve throughput and resource usage.
   - JavaScript automatically scans for `bb-action` and `bb-data-*` attributes to
     provide functionality
   - Event delegation system allows any HTML element with `bb-action` to trigger
-    Blue Banded Bee features
+    Adapt features
   - Sets foundation for future template binding system where users control
     layout design
 
@@ -2979,7 +2977,7 @@ Series of minor optimisations to improve throughput and resource usage.
   application
   - Added `/js/` endpoint to serve Web Components as static files from Go app
   - Components now accessible at
-    `https://app.bluebandedbee.co/js/bb-components.min.js`
+    `https://adapt.app.goodnative.co/js/bb-components.min.js`
   - Docker container properly configured to include built components
 
 ### Enhanced
@@ -3227,7 +3225,7 @@ Series of minor optimisations to improve throughput and resource usage.
     validation
   - Support for 8 social login providers: Google, Facebook, Slack, GitHub,
     Microsoft, Figma, LinkedIn + Email/Password
-  - Custom domain authentication using `auth.bluebandedbee.co` for professional
+  - Custom domain authentication using `auth.goodnative.co` for professional
     OAuth flows
   - User and organisation management with automatic organisation creation on
     signup

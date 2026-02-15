@@ -29,7 +29,7 @@ func DefaultConfig() *Config {
 		DefaultTimeout: 30 * time.Second,
 		MaxConcurrency: 10,
 		RateLimit:      5, // Maximum no. of times per second (minimum delay 1/ratelimit)
-		UserAgent:      "BlueBandedBee/1.0 (+https://www.bluebandedbee.co/pages/about-the-bot)",
+		UserAgent:      "AdaptBot/1.0 (+https://www.goodnative.co/pages/about-the-bot)",
 		RetryAttempts:  3,
 		RetryDelay:     500 * time.Millisecond,
 		SkipCachedURLs: false, // Default to crawling all URLs

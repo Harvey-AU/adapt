@@ -1,7 +1,7 @@
 {
-  "name": "@bluebandedbee/web-components",
+  "name": "@goodnative/web-components",
   "version": "1.0.0",
-  "description": "Web Components for Blue Banded Bee dashboard integration",
+  "description": "Web Components for Adapt dashboard integration",
   "main": "static/js/bb-components.js",
   "scripts": {
     "serve": "serve static"
@@ -12,7 +12,7 @@
     "cache-warming",
     "dashboard"
   ],
-  "author": "Blue Banded Bee",
+  "author": "Adapt",
   "license": "MIT",
   "devDependencies": {
     "serve": "^14.0.0"

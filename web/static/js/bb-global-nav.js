@@ -31,7 +31,7 @@
             <div class="header-brand">
               <a href="/dashboard" class="logo">
                 <span>🐝</span>
-                Blue Banded Bee
+                Adapt
               </a>
               <span class="nav-separator" id="globalNavSeparator">|</span>
               <span class="nav-title" id="globalNavTitle"></span>

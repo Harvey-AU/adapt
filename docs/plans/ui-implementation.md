@@ -2,9 +2,9 @@
 
 ## Overview
 
-Blue Banded Bee provides a template + data binding system that allows users to
-build custom HTML layouts whilst the JavaScript handles data fetching,
-authentication, and real-time updates.
+Adapt provides a template + data binding system that allows users to build
+custom HTML layouts whilst the JavaScript handles data fetching, authentication,
+and real-time updates.
 
 ## User Interface Strategy
 
@@ -18,8 +18,7 @@ Bee's own product dashboard **Secondary Interfaces:**
 
 **Integration Philosophy:**
 
-- **Template binding** allows flexible dashboard design for Blue Banded Bee's
-  own product
+- **Template binding** allows flexible dashboard design for Adapt's own product
 - **External integrations** provide simple, focused functionality within user's
   existing workflows
 
@@ -27,13 +26,12 @@ Bee's own product dashboard **Secondary Interfaces:**
 
 ### Template + Data Binding System
 
-Blue Banded Bee's own dashboard pages use `data-bb-bind` attributes. The
-JavaScript library finds these elements and populates them with live data from
-the API.
+Adapt's own dashboard pages use `data-bb-bind` attributes. The JavaScript
+library finds these elements and populates them with live data from the API.
 
 **Template system controls:**
 
-- All HTML structure and CSS styling for Blue Banded Bee's dashboard
+- All HTML structure and CSS styling for Adapt's dashboard
 - Page layout and design positioning
 - Visual appearance and branding
 
@@ -47,7 +45,7 @@ the API.
 ### Integration Method
 
 ```html
-<!-- Blue Banded Bee dashboard HTML design -->
+<!-- Adapt dashboard HTML design -->
 <div class="bb-dashboard-design">
   <div class="stat-card">
     <h3>Total Jobs</h3>
@@ -66,7 +64,7 @@ the API.
 </div>
 
 <!-- Single script inclusion -->
-<script src="https://app.bluebandedbee.co/js/bb-data-binder.js"></script>
+<script src="https://adapt.app.goodnative.co/js/bb-data-binder.js"></script>
 ```
 
 ## Data Binding Attributes
@@ -183,7 +181,7 @@ UI Update ← Supabase Realtime ← Database Trigger
 
 **User Experience:**
 
-1. User installs Blue Banded Bee app in their Webflow workspace
+1. User installs Adapt app in their Webflow workspace
 2. Opens app within Webflow Designer interface
 3. Logs in with existing Supabase Auth (same as main website)
 4. Views last crawl status for current Webflow site
@@ -200,7 +198,7 @@ UI Update ← Supabase Realtime ← Database Trigger
 
 **User Experience:**
 
-1. Install Blue Banded Bee Slack app in workspace
+1. Install Adapt Slack app in workspace
 2. Use `/crawl sitedomain.com` command to start cache warming
 3. Receive progress updates as thread replies
 4. Get completion summary with link to main dashboard

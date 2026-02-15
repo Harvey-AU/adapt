@@ -1,11 +1,11 @@
-# Blue Banded Bee - Product Strategy & Positioning
+# Adapt - Product Strategy & Positioning
 
 ## Executive Summary
 
-Blue Banded Bee is a post-publish quality assurance tool that automatically
-crawls websites to detect broken links and warm caches after every update.
-Target market: websites with 300+ pages that publish frequently, where manual
-checking becomes impossible.
+Adapt is a post-publish quality assurance tool that automatically crawls
+websites to detect broken links and warm caches after every update. Target
+market: websites with 300+ pages that publish frequently, where manual checking
+becomes impossible.
 
 ## Core Value Proposition
 
@@ -247,8 +247,7 @@ in marketing materials._
 
 ## Bottom Line
 
-Blue Banded Bee can realistically achieve 1,000 paying customers in 12-18 months
-by:
+Adapt can realistically achieve 1,000 paying customers in 12-18 months by:
 
 - Starting narrow (Webflow agencies) then expanding (Shopify stores).
 - Leading with understood value (broken links) while educating on advanced

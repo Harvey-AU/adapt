@@ -19,8 +19,8 @@
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/[your-username]/blue-banded-bee.git
-cd blue-banded-bee
+git clone https://github.com/[your-username]/adapt-app-goodnative.git
+cd adapt-app-goodnative
 
 # Setup Git hooks for automatic formatting
 bash scripts/setup-hooks.sh
@@ -441,10 +441,10 @@ GOOS=linux GOARCH=amd64 go build ./cmd/app
 
 ```bash
 # Build container
-docker build -t blue-banded-bee .
+docker build -t adapt-app-goodnative .
 
 # Run with database link
-docker run --env-file .env -p 8847:8847 blue-banded-bee
+docker run --env-file .env -p 8847:8847 adapt-app-goodnative
 ```
 
 ### Adding New HTML Pages (Avoid 404s)
@@ -461,7 +461,7 @@ you must update all required surfaces:
    - Add a `COPY --from=builder /app/<page>.html .` line in `Dockerfile`.
    - If omitted, local runs may work, but Fly deployments will return 404.
 4. **Verify before merge**
-   - Run `docker build -t blue-banded-bee .`
+   - Run `docker build -t adapt-app-goodnative .`
    - Open the route in the built container or review app.
 
 Recommended quick checks:
@@ -538,7 +538,7 @@ Use backend state as the source of truth for active organisation selection:
 pg_isready -h localhost -p 5432
 
 # Verify credentials
-psql -h localhost -U your_user -d bluebandedbee
+psql -h localhost -U your_user -d adaptappgoodnative
 ```
 
 **Port Already in Use**:
@@ -565,7 +565,7 @@ go mod download
 
 ### Function Design Principles
 
-Blue Banded Bee follows focused, testable function design:
+Adapt follows focused, testable function design:
 
 - **Function Size**: Keep functions under 50 lines where possible
 - **Single Responsibility**: Each function should do one thing well

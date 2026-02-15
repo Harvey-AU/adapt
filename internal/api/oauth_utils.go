@@ -107,8 +107,8 @@ func getAppURL() string {
 	if appURL := os.Getenv("APP_URL"); appURL != "" {
 		return appURL
 	}
-	// defaultAppURL is defined as a constant
-	return "https://app.bluebandedbee.co"
+	// Production fallback for environments that haven't set APP_URL yet.
+	return "https://adapt.app.goodnative.co"
 }
 
 // getSettingsURL returns the settings URL

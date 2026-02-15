@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-APP="blue-banded-bee"
+APP="adapt-app-goodnative"
 INTERVAL=10
 SAMPLES=400
 ITERATIONS=1440  # 4 hours at 10s intervals
@@ -27,7 +27,7 @@ Automatic cleanup (enabled by default):
   - Use --no-cleanup to disable or --cleanup-mode delete to remove everything
 
 Options:
-  --app NAME            Fly application name (default: blue-banded-bee)
+  --app NAME            Fly application name (default: adapt-app-goodnative)
   --interval SECONDS    Seconds to wait between samples (default: 60)
   --samples N           Number of log lines to request each run (default: 400)
   --iterations N        Number of iterations to perform (0 = run forever)

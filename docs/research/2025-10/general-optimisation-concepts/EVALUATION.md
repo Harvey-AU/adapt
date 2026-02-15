@@ -1,7 +1,7 @@
 # Reference Articles Evaluation
 
-**Project**: Blue Banded Bee - Cache Warming Service **Evaluation Date**: 12
-October 2025 **Evaluator**: System Analysis
+**Project**: Adapt - Cache Warming Service **Evaluation Date**: 12 October 2025
+**Evaluator**: System Analysis
 
 ## Executive Summary
 
@@ -333,27 +333,27 @@ https://blog.stackademic.com/top-10-go-libraries-every-developer-should-know-in-
 
 - **GoQuery**: jQuery-like HTML parsing - alternative to Colly if static site
   needs arise [3 impact, 2 effort]
-- **Cobra CLI**: Build admin CLI tools - future `blue-banded-bee migrate`,
+- **Cobra CLI**: Build admin CLI tools - future `adapt-app-goodnative migrate`,
   `seed` commands [2 impact, 3 effort]
 
 ### Recommendations
 
-| Status                                    | Concept       | Rel | Cur | Imp | Eff | Pri | Summary                                                                     | Application Examples                                                  |
-| ----------------------------------------- | ------------- | --- | --- | --- | --- | --- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ✅                                        | Testify       | 5   | 5   | 5   | 1   | 0   | Assertion library with test suites - comprehensive testing framework        | Already using extensively (very high impact, trivial effort)          |
-| ✅                                        | time package  | 5   | 5   | 4   | 0   | 0   | Standard library time/timezone handling - built-in and sufficient           | Already using stdlib (high impact, zero effort)                       |
-| ✅                                        | GoQuery       | 3   | 5   | 3   | 2   | 0   | jQuery-style HTML parsing - Colly alternative for static sites              | • `crawler.go:14` imports goquery                                     |
-| • `go.mod:8` production dependency        |
-|                                           | Cobra CLI     | 2   | 0   | 2   | 3   | 1   | CLI builder with subcommands - admin tools for migrations and seeding       | • Stage 4+ admin CLI tools                                            |
-| • `blue-banded-bee migrate`, `seed`, etc. |
-| ✅                                        | Gin framework | 2   | 0   | 1   | 4   | 0   | Fast web framework with middleware - stdlib sufficient, high migration cost | Not needed - stdlib sufficient (low impact, high effort to switch)    |
-| ✅                                        | GORM          | 2   | 0   | 1   | 4   | 0   | ORM with migrations and relations - pgx gives better control                | Not needed - pgx provides control (low impact, high effort)           |
-| ✅                                        | GoDotEnv      | 2   | 5   | 2   | 0   | 0   | Load .env files into environment - Fly.io secrets handle config             | • `main.go:39` godotenv.Load()                                        |
-| • `go.mod:14` production dependency       |
-|                                           | mapstructure  | 1   | 0   | 1   | 1   | 0   | Decode maps into structs - JSON unmarshal handles this already              | Not needed - direct JSON unmarshal works fine                         |
-| ✅                                        | JWT-Go        | 3   | 5   | 3   | 0   | 0   | JWT creation and validation - Supabase Auth handles all JWT ops             | • `auth/middleware.go:13` imports golang-jwt/jwt/v5                   |
-| • `go.mod:11` dependency                  |
-|                                           | HTTPRouter    | 2   | 0   | 1   | 3   | 0   | Fast HTTP router with path parameters - ServeMux 1.22+ sufficient           | stdlib `net/http` ServeMux 1.22+ sufficient - no benefit to switching |
+| Status                                         | Concept       | Rel | Cur | Imp | Eff | Pri | Summary                                                                     | Application Examples                                                  |
+| ---------------------------------------------- | ------------- | --- | --- | --- | --- | --- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ✅                                             | Testify       | 5   | 5   | 5   | 1   | 0   | Assertion library with test suites - comprehensive testing framework        | Already using extensively (very high impact, trivial effort)          |
+| ✅                                             | time package  | 5   | 5   | 4   | 0   | 0   | Standard library time/timezone handling - built-in and sufficient           | Already using stdlib (high impact, zero effort)                       |
+| ✅                                             | GoQuery       | 3   | 5   | 3   | 2   | 0   | jQuery-style HTML parsing - Colly alternative for static sites              | • `crawler.go:14` imports goquery                                     |
+| • `go.mod:8` production dependency             |
+|                                                | Cobra CLI     | 2   | 0   | 2   | 3   | 1   | CLI builder with subcommands - admin tools for migrations and seeding       | • Stage 4+ admin CLI tools                                            |
+| • `adapt-app-goodnative migrate`, `seed`, etc. |
+| ✅                                             | Gin framework | 2   | 0   | 1   | 4   | 0   | Fast web framework with middleware - stdlib sufficient, high migration cost | Not needed - stdlib sufficient (low impact, high effort to switch)    |
+| ✅                                             | GORM          | 2   | 0   | 1   | 4   | 0   | ORM with migrations and relations - pgx gives better control                | Not needed - pgx provides control (low impact, high effort)           |
+| ✅                                             | GoDotEnv      | 2   | 5   | 2   | 0   | 0   | Load .env files into environment - Fly.io secrets handle config             | • `main.go:39` godotenv.Load()                                        |
+| • `go.mod:14` production dependency            |
+|                                                | mapstructure  | 1   | 0   | 1   | 1   | 0   | Decode maps into structs - JSON unmarshal handles this already              | Not needed - direct JSON unmarshal works fine                         |
+| ✅                                             | JWT-Go        | 3   | 5   | 3   | 0   | 0   | JWT creation and validation - Supabase Auth handles all JWT ops             | • `auth/middleware.go:13` imports golang-jwt/jwt/v5                   |
+| • `go.mod:11` dependency                       |
+|                                                | HTTPRouter    | 2   | 0   | 1   | 3   | 0   | Fast HTTP router with path parameters - ServeMux 1.22+ sufficient           | stdlib `net/http` ServeMux 1.22+ sufficient - no benefit to switching |
 
 ---
 
@@ -400,7 +400,7 @@ articles above.
 
 ---
 
-## Blue Banded Bee Context (For Reference)
+## Adapt Context (For Reference)
 
 ### Current Architecture
 

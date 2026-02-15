@@ -469,7 +469,7 @@ func main() {
 	if config.ObservabilityEnabled {
 		obsProviders, err = observability.Init(context.Background(), observability.Config{
 			Enabled:        true,
-			ServiceName:    "blue-banded-bee",
+			ServiceName:    "adapt-app-goodnative",
 			Environment:    config.Env,
 			OTLPEndpoint:   strings.TrimSpace(config.OTLPEndpoint),
 			OTLPHeaders:    parseOTLPHeaders(config.OTLPHeaders),
@@ -732,7 +732,7 @@ func main() {
 		log.Info().Str("port", config.Port).Msg("Starting server")
 
 		baseURL := fmt.Sprintf("http://localhost:%s", config.Port)
-		log.Info().Msg("🚀 Blue Banded Bee Development Server Ready!")
+		log.Info().Msg("🚀 Adapt Development Server Ready!")
 		log.Info().Str("homepage", baseURL).Msg("📱 Open Homepage")
 		log.Info().Str("dashboard", baseURL+"/dashboard").Msg("📊 Open Dashboard")
 		log.Info().Str("health", baseURL+"/health").Msg("🔍 Health Check")
@@ -889,7 +889,7 @@ func setupLogging(config *Config) {
 		log.Logger = zerolog.New(os.Stdout).
 			With().
 			Timestamp().
-			Str("service", "blue-banded-bee").
+			Str("service", "adapt-app-goodnative").
 			Logger()
 	}
 }

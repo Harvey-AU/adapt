@@ -1,7 +1,7 @@
 # Observability
 
-Blue Banded Bee uses OpenTelemetry for distributed tracing and observability,
-with traces exported to Grafana Cloud Tempo.
+Adapt uses OpenTelemetry for distributed tracing and observability, with traces
+exported to Grafana Cloud Tempo.
 
 ## Overview
 
@@ -72,7 +72,7 @@ echo -n "1322842:glc_abc123..." | base64
 # Set in Fly.io:
 flyctl secrets set \
   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic MTMyMjg0MjpnbGNfYWJjMTIzLi4u" \
-  --app blue-banded-bee
+  --app adapt-app-goodnative
 ```
 
 ### Deployment on Fly.io
@@ -83,7 +83,7 @@ Set both secrets:
 flyctl secrets set \
   OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp/v1/traces" \
   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <your_base64_credentials>" \
-  --app blue-banded-bee
+  --app adapt-app-goodnative
 ```
 
 The app will automatically redeploy with the new configuration.
@@ -129,31 +129,31 @@ The app will automatically redeploy with the new configuration.
 **Find slow jobs:**
 
 ```
-service.name = "blue-banded-bee" && duration > 5s
+service.name = "adapt-app-goodnative" && duration > 5s
 ```
 
 **Find errors:**
 
 ```
-service.name = "blue-banded-bee" && status = error
+service.name = "adapt-app-goodnative" && status = error
 ```
 
 **Search by job ID:**
 
 ```
-service.name = "blue-banded-bee" && job.id = "abc123"
+service.name = "adapt-app-goodnative" && job.id = "abc123"
 ```
 
 **Find slow URL warming operations:**
 
 ```
-service.name = "blue-banded-bee" && span.name =~ "WarmURL" && duration > 10s
+service.name = "adapt-app-goodnative" && span.name =~ "WarmURL" && duration > 10s
 ```
 
 **Database performance:**
 
 ```
-service.name = "blue-banded-bee" && span.name =~ "database"
+service.name = "adapt-app-goodnative" && span.name =~ "database"
 ```
 
 ### Reading a Trace
@@ -196,7 +196,7 @@ This instantly shows URL 2 is timing out after 3 minutes.
 
 ## Trace Context Propagation
 
-Blue Banded Bee propagates trace context using W3C Trace Context standard:
+Adapt propagates trace context using W3C Trace Context standard:
 
 - Incoming requests with `traceparent` headers are automatically linked
 - Outgoing HTTP requests include trace context
@@ -216,7 +216,7 @@ Blue Banded Bee propagates trace context using W3C Trace Context standard:
 1. **Check secrets are set:**
 
    ```bash
-   flyctl secrets list --app blue-banded-bee | grep OTEL
+   flyctl secrets list --app adapt-app-goodnative | grep OTEL
    ```
 
    (Values will be masked for security)
@@ -224,7 +224,7 @@ Blue Banded Bee propagates trace context using W3C Trace Context standard:
 2. **Check app logs for OTLP errors:**
 
    ```bash
-   flyctl logs --app blue-banded-bee | grep -i otlp
+   flyctl logs --app adapt-app-goodnative | grep -i otlp
    ```
 
    Should see: `INFO: OTLP trace exporter initialised successfully`
@@ -259,7 +259,7 @@ traces export: failed to send to https://...: 401 Unauthorized
 
 ## Metrics (Future)
 
-Currently Blue Banded Bee exports traces only. Future work may add:
+Currently Adapt exports traces only. Future work may add:
 
 - **Metrics:** Worker pool utilisation, job throughput, error rates
 - **Logs:** Structured log export to Grafana Loki

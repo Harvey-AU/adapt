@@ -171,7 +171,7 @@
     } catch (error) {
       window.BB_APP = window.BB_APP || {};
       window.BB_APP.coreReadyState = "error";
-      console.error("Failed to initialise Blue Banded Bee core scripts", error);
+      console.error("Failed to initialise Adapt core scripts", error);
       throw error;
     }
   })();

@@ -2,17 +2,15 @@
 
 ## Overview
 
-Blue Banded Bee uses PostgreSQL as its primary database with a normalised schema
-designed for efficiency and data integrity. The system leverages
-PostgreSQL-specific features like `FOR UPDATE SKIP LOCKED` for lock-free
-concurrent task processing.
+Adapt uses PostgreSQL as its primary database with a normalised schema designed
+for efficiency and data integrity. The system leverages PostgreSQL-specific
+features like `FOR UPDATE SKIP LOCKED` for lock-free concurrent task processing.
 
 As of 26th July 2025 we manage database schema/setup via migrations.
 
 ### Migration Workflow
 
-Blue Banded Bee uses Supabase GitHub integration for automatic migration
-deployment:
+Adapt uses Supabase GitHub integration for automatic migration deployment:
 
 1. **Create Migration Files**: Place new `.sql` files in `supabase/migrations/`
    with timestamp prefix
@@ -37,7 +35,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=your_user
 DB_PASSWORD=your_password
-DB_NAME=bluebandedbee
+DB_NAME=adaptappgoodnative
 DB_SSLMODE=prefer
 ```
 
@@ -55,8 +53,8 @@ client.SetConnMaxIdleTime(2 * time.Minute)  // Idle connection timeout
 
 ### Connection Pool Sizing Strategy
 
-Blue Banded Bee uses conservative connection pool limits tuned for Supabase's
-shared infrastructure:
+Adapt uses conservative connection pool limits tuned for Supabase's shared
+infrastructure:
 
 **Current Configuration:**
 
@@ -101,8 +99,8 @@ GROUP BY state;
 
 ### Connection Timeout Configuration
 
-Blue Banded Bee configures PostgreSQL session timeouts to prevent resource leaks
-and runaway queries:
+Adapt configures PostgreSQL session timeouts to prevent resource leaks and
+runaway queries:
 
 ```go
 // Located in internal/db/db.go - automatically appended to connection strings
@@ -507,8 +505,8 @@ FOR ALL USING (
 
 ### Composite Indexes for Hot Paths
 
-Blue Banded Bee uses composite indexes optimised for actual query patterns
-identified through EXPLAIN ANALYZE profiling:
+Adapt uses composite indexes optimised for actual query patterns identified
+through EXPLAIN ANALYZE profiling:
 
 #### Task Claiming (Worker Pool)
 
@@ -789,8 +787,8 @@ updates and avoid frequent progress writes
 
 ## Performance Observability
 
-Blue Banded Bee ships with the `pg_stat_statements` extension enabled so we can
-measure the queries causing the highest load:
+Adapt ships with the `pg_stat_statements` extension enabled so we can measure
+the queries causing the highest load:
 
 - The migration `20251012070000_enable_pg_stat_statements.sql` enables the
   extension and exposes a view at
@@ -816,10 +814,10 @@ measure the queries causing the highest load:
 
 ```bash
 # Create local database
-createdb bluebandedbee
+createdb adaptappgoodnative
 
 # Set environment variables
-export DATABASE_URL="postgres://localhost/bluebandedbee"
+export DATABASE_URL="postgres://localhost/adaptappgoodnative"
 
 # Run application (creates schema automatically)
 go run ./cmd/app/main.go
@@ -829,7 +827,7 @@ go run ./cmd/app/main.go
 
 ```bash
 # Run with test database
-export DATABASE_URL="postgres://localhost/bluebandedbee_test"
+export DATABASE_URL="postgres://localhost/adaptappgoodnative_test"
 export RUN_INTEGRATION_TESTS=true
 go test ./...
 ```
@@ -842,5 +840,5 @@ curl -X POST localhost:8080/admin/reset-db \
   -H "Authorization: Bearer admin-token"
 ```
 
-This database design provides a solid foundation for Blue Banded Bee's cache
-warming operations while maintaining data integrity, performance, and security.
+This database design provides a solid foundation for Adapt's cache warming
+operations while maintaining data integrity, performance, and security.
