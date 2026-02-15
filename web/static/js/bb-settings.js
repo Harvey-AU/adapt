@@ -1312,7 +1312,7 @@
         if (billing.current_period_ends_at) {
           renewalLabel.textContent = `Renews: ${new Date(
             billing.current_period_ends_at
-          ).toLocaleDateString()}`;
+          ).toLocaleDateString("en-AU")}`;
         } else {
           renewalLabel.textContent = "";
         }
