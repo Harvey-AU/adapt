@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -198,7 +199,7 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		WHERE id = $1 AND is_active = true
 	`, req.PlanID).Scan(&planName, &planDisplayName, &monthlyPriceCents, &paddlePriceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			BadRequest(w, r, "Plan not found")
 			return
 		}
