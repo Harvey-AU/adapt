@@ -3,10 +3,8 @@ let clickCount = 0;
 const pingButton = document.getElementById("pingButton");
 const counterText = document.getElementById("counterText");
 const statusText = document.getElementById("statusText");
-const apiBaseUrlInput = document.getElementById(
-  "apiBaseUrl"
-) as HTMLInputElement;
-const apiTokenInput = document.getElementById("apiToken") as HTMLInputElement;
+const apiBaseUrlInput = document.getElementById("apiBaseUrl");
+const apiTokenInput = document.getElementById("apiToken");
 const connectAuthButton = document.getElementById("connectAuthButton");
 const checkApiButton = document.getElementById("checkApiButton");
 const apiStatusText = document.getElementById("apiStatusText");
@@ -17,6 +15,10 @@ const API_TOKEN_STORAGE_KEY = "bbb_extension_api_token_session";
 const AUTH_POPUP_WIDTH = 520;
 const AUTH_POPUP_HEIGHT = 760;
 const DEFAULT_BBB_APP_ORIGIN = "https://app.bluebandedbee.co";
+
+function isInputElement(el: Element | null): el is HTMLInputElement {
+  return el instanceof HTMLInputElement;
+}
 
 if (pingButton && counterText && statusText) {
   pingButton.addEventListener("click", () => {
@@ -41,13 +43,19 @@ if (connectAuthButton && apiStatusText && apiDetailsText) {
 }
 
 function hydrateApiInputs() {
-  const savedBaseUrl = window.localStorage.getItem(API_BASE_STORAGE_KEY);
-  const savedToken = window.sessionStorage.getItem(API_TOKEN_STORAGE_KEY);
+  let savedBaseUrl: string | null = null;
+  let savedToken: string | null = null;
+  try {
+    savedBaseUrl = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+    savedToken = window.sessionStorage.getItem(API_TOKEN_STORAGE_KEY);
+  } catch (_error) {
+    // Storage may be unavailable.
+  }
 
-  if (apiBaseUrlInput) {
+  if (isInputElement(apiBaseUrlInput)) {
     apiBaseUrlInput.value = savedBaseUrl || "https://app.bluebandedbee.co";
   }
-  if (apiTokenInput && savedToken) {
+  if (isInputElement(apiTokenInput) && savedToken) {
     apiTokenInput.value = savedToken;
   }
 }
@@ -66,8 +74,8 @@ function getHeaders(token: string): HeadersInit {
 
 async function runApiCheck() {
   if (
-    !apiBaseUrlInput ||
-    !apiTokenInput ||
+    !isInputElement(apiBaseUrlInput) ||
+    !isInputElement(apiTokenInput) ||
     !checkApiButton ||
     !apiStatusText ||
     !apiDetailsText
@@ -78,11 +86,10 @@ async function runApiCheck() {
   const baseUrl = apiBaseUrlInput.value.trim().replace(/\/$/, "");
   const token = apiTokenInput.value.trim();
 
-  window.localStorage.setItem(API_BASE_STORAGE_KEY, baseUrl);
-  if (token) {
-    window.sessionStorage.setItem(API_TOKEN_STORAGE_KEY, token);
-  } else {
-    window.sessionStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  try {
+    window.localStorage.setItem(API_BASE_STORAGE_KEY, baseUrl);
+  } catch (_error) {
+    // Storage may be unavailable.
   }
 
   if (!baseUrl) {
@@ -140,6 +147,13 @@ async function runApiCheck() {
 
     apiStatusText.textContent = "API reachable and integrations fetched.";
     apiDetailsText.textContent = `Webflow connections: ${count}`;
+    if (token) {
+      try {
+        window.sessionStorage.setItem(API_TOKEN_STORAGE_KEY, token);
+      } catch (_error) {
+        // Storage may be unavailable.
+      }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     apiStatusText.textContent = "Request failed.";
@@ -150,6 +164,15 @@ async function runApiCheck() {
 }
 
 function createAuthState() {
+  if (window.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    const random = Array.from(bytes, (b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
+    return `${Date.now()}-${random}`;
+  }
+
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -163,8 +186,8 @@ function getPopupPosition() {
 
 async function connectAccount() {
   if (
-    !apiBaseUrlInput ||
-    !apiTokenInput ||
+    !isInputElement(apiBaseUrlInput) ||
+    !isInputElement(apiTokenInput) ||
     !connectAuthButton ||
     !apiStatusText ||
     !apiDetailsText
@@ -251,10 +274,14 @@ async function connectAccount() {
 
       if (payload.type === "success" && payload.accessToken) {
         apiTokenInput.value = payload.accessToken;
-        window.sessionStorage.setItem(
-          API_TOKEN_STORAGE_KEY,
-          payload.accessToken
-        );
+        try {
+          window.sessionStorage.setItem(
+            API_TOKEN_STORAGE_KEY,
+            payload.accessToken
+          );
+        } catch (_error) {
+          // Storage may be unavailable.
+        }
         apiStatusText.textContent =
           "Authenticated. Token stored for this session.";
         apiDetailsText.textContent =
