@@ -330,6 +330,9 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 
 // PaddleWebhook handles POST /v1/webhooks/paddle.
 func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
+	logger := loggerWithRequest(r)
+	startedAt := time.Now()
+
 	if r.Method != http.MethodPost {
 		MethodNotAllowed(w, r)
 		return
@@ -349,6 +352,10 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	if !verifyPaddleSignature(r.Header.Get("Paddle-Signature"), body, webhookSecret) {
+		logger.Warn().
+			Str("remote_addr", r.RemoteAddr).
+			Str("signature", r.Header.Get("Paddle-Signature")).
+			Msg("Paddle webhook signature verification failed")
 		Unauthorised(w, r, "Invalid webhook signature")
 		return
 	}
@@ -367,6 +374,10 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		BadRequest(w, r, "Webhook payload missing event metadata")
 		return
 	}
+	logger.Info().
+		Str("event_id", event.EventID).
+		Str("event_type", event.EventType).
+		Msg("Paddle webhook received")
 
 	insertRes, err := h.DB.GetDB().ExecContext(r.Context(), `
 		INSERT INTO paddle_webhook_events (event_id, event_type, status, received_at)
@@ -378,6 +389,10 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rows, _ := insertRes.RowsAffected(); rows == 0 {
+		logger.Debug().
+			Str("event_id", event.EventID).
+			Str("event_type", event.EventType).
+			Msg("Paddle webhook already processed")
 		WriteSuccess(w, r, nil, "Webhook already processed")
 		return
 	}
@@ -397,9 +412,20 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 	`, event.EventID, status, errMsg)
 
 	if processErr != nil {
+		logger.Error().
+			Err(processErr).
+			Str("event_id", event.EventID).
+			Str("event_type", event.EventType).
+			Dur("duration", time.Since(startedAt)).
+			Msg("Paddle webhook processing failed")
 		InternalError(w, r, processErr)
 		return
 	}
+	logger.Info().
+		Str("event_id", event.EventID).
+		Str("event_type", event.EventType).
+		Dur("duration", time.Since(startedAt)).
+		Msg("Paddle webhook processed successfully")
 
 	WriteSuccess(w, r, nil, "Webhook processed successfully")
 }
