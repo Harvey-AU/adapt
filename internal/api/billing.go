@@ -652,6 +652,17 @@ func verifyPaddleSignature(signatureHeader string, body []byte, secret string) b
 	if ts == "" || h1 == "" {
 		return false
 	}
+	tsInt, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return false
+	}
+	diffSeconds := time.Now().Unix() - tsInt
+	if diffSeconds < 0 {
+		diffSeconds = -diffSeconds
+	}
+	if diffSeconds > int64((5 * time.Minute).Seconds()) {
+		return false
+	}
 
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(ts))
