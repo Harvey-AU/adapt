@@ -2418,6 +2418,7 @@
       );
       if (billingPortalButton) {
         billingPortalButton.addEventListener("click", async () => {
+          billingPortalButton.disabled = true;
           try {
             const response = await window.dataBinder.fetchData(
               "/v1/billing/portal",
@@ -2436,6 +2437,8 @@
               "error",
               err?.message || "Failed to open billing portal"
             );
+          } finally {
+            billingPortalButton.disabled = false;
           }
         });
       }
