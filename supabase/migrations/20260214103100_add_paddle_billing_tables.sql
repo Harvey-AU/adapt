@@ -61,3 +61,42 @@ CREATE TABLE IF NOT EXISTS paddle_webhook_events (
     status TEXT NOT NULL DEFAULT 'processing',
     error_message TEXT
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_organisations_subscription_status'
+    ) THEN
+        ALTER TABLE organisations
+        ADD CONSTRAINT chk_organisations_subscription_status
+        CHECK (subscription_status IN ('inactive', 'active', 'trialing', 'past_due', 'paused', 'canceled', 'cancelled', 'unknown'));
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_billing_invoices_status'
+    ) THEN
+        ALTER TABLE billing_invoices
+        ADD CONSTRAINT chk_billing_invoices_status
+        CHECK (status IN ('draft', 'ready', 'billed', 'paid', 'completed', 'past_due', 'canceled', 'cancelled', 'refunded', 'failed', 'unknown'));
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_paddle_webhook_events_status'
+    ) THEN
+        ALTER TABLE paddle_webhook_events
+        ADD CONSTRAINT chk_paddle_webhook_events_status
+        CHECK (status IN ('processing', 'processed', 'failed'));
+    END IF;
+END $$;

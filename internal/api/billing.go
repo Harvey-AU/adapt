@@ -471,10 +471,11 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 		if subscriptionID == "" {
 			subscriptionID = extractString(data, "subscription_id")
 		}
-		status := extractString(data, "status")
+		status := strings.ToLower(extractString(data, "status"))
 		if status == "" {
 			status = "active"
 		}
+		status = normaliseSubscriptionStatus(status)
 		periodEnd := parseAnyTimestamp(
 			extractString(data, "next_billed_at"),
 			extractString(data, "current_billing_period", "ends_at"),
@@ -501,10 +502,11 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 			return nil
 		}
 
-		status := extractString(data, "status")
+		status := strings.ToLower(extractString(data, "status"))
 		if status == "" {
 			status = "paid"
 		}
+		status = normaliseInvoiceStatus(status)
 		invoiceID := extractString(data, "invoice_id")
 		invoiceNumber := extractString(data, "details", "invoice_number")
 		currency := extractString(data, "currency_code")
@@ -697,6 +699,24 @@ func parseAnyInt(candidates ...string) int {
 		}
 	}
 	return 0
+}
+
+func normaliseSubscriptionStatus(status string) string {
+	switch status {
+	case "inactive", "active", "trialing", "past_due", "paused", "canceled", "cancelled":
+		return status
+	default:
+		return "unknown"
+	}
+}
+
+func normaliseInvoiceStatus(status string) string {
+	switch status {
+	case "draft", "ready", "billed", "paid", "completed", "past_due", "canceled", "cancelled", "refunded", "failed":
+		return status
+	default:
+		return "unknown"
+	}
 }
 
 func extractString(m map[string]any, path ...string) string {
