@@ -5,8 +5,8 @@ Webflow Designer before wiring OAuth/API calls.
 
 ## Developing
 
-```
-$ npm run dev
+```bash
+npm run dev
 ```
 
 The command does two things:
@@ -17,8 +17,8 @@ The command does two things:
 
 ## Deploying
 
-```
-$ npm run build
+```bash
+npm run build
 ```
 
 This prepares a `bundle.zip` for upload in Webflow App settings.
@@ -40,7 +40,7 @@ The panel includes a basic read-only API check:
 2. Click `Sign in / Create account` to open BBB auth popup and obtain token.
 3. Click `Check API`.
 
-Expected behavior:
+Expected behaviour:
 
 - Calls `GET /health` first to confirm reachability.
 - Calls `GET /v1/integrations/webflow` and shows connection count.
