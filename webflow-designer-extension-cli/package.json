@@ -7,7 +7,7 @@
     "compile": "tsc -p tsconfig.json",
     "build": "npm install && npm run compile && npx webflow extension bundle",
     "dev": "npm install && concurrently -r \"npx webflow extension serve\" \"npm run compile -- --watch --preserveWatchOutput\"",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint --no-config-lookup -c eslint.config.mjs \"src/**/*.ts\"",
     "format:check": "prettier --check \"./**/*.{ts,json,md,html,css,yml,yaml}\"",
     "format:write": "prettier --write \"./**/*.{ts,json,md,html,css,yml,yaml}\""
   },
