@@ -24,6 +24,8 @@ type billingCheckoutRequest struct {
 	PlanID string `json:"plan_id"`
 }
 
+var paddleHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 // BillingHandler handles GET /v1/billing.
 func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -582,7 +584,7 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := paddleHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("paddle API request failed: %w", err)
 	}
