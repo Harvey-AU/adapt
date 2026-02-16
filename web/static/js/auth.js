@@ -331,6 +331,8 @@ function waitForAuthScript(pollIntervalMs = 50, timeoutMs = 12000) {
  */
 async function handleAuthCallback() {
   try {
+    const isExtensionAuthFlow = Boolean(window.BB_APP?.extensionAuth);
+
     // Check for error parameters in URL (from OAuth failures)
     const urlParams = new URLSearchParams(window.location.search);
     const hasOAuthCallbackParams =
@@ -345,7 +347,11 @@ async function handleAuthCallback() {
       console.error("OAuth error:", error, errorDescription);
       const inviteToken =
         urlParams.get("invite_token") || getPendingInviteToken();
-      if (inviteToken && window.location.pathname !== "/welcome/invite") {
+      if (
+        !isExtensionAuthFlow &&
+        inviteToken &&
+        window.location.pathname !== "/welcome/invite"
+      ) {
         const inviteUrl = new URL(
           `${window.location.origin}/welcome/invite?invite_token=${encodeURIComponent(inviteToken)}`
         );
@@ -384,6 +390,7 @@ async function handleAuthCallback() {
       if (session) {
         const pendingInviteToken = getPendingInviteToken();
         if (
+          !isExtensionAuthFlow &&
           pendingInviteToken &&
           window.location.pathname !== "/welcome/invite"
         ) {
@@ -394,7 +401,7 @@ async function handleAuthCallback() {
           window.location.replace(inviteUrl.toString());
           return false;
         }
-        if (isOAuthCallbackReturn) {
+        if (!isExtensionAuthFlow && isOAuthCallbackReturn) {
           const returnTarget = getPostAuthReturnTarget();
           if (returnTarget) {
             clearPostAuthReturnTarget();
@@ -424,6 +431,7 @@ async function handleAuthCallback() {
       if (session) {
         const pendingInviteToken = getPendingInviteToken();
         if (
+          !isExtensionAuthFlow &&
           hasOAuthCallbackParams &&
           pendingInviteToken &&
           window.location.pathname !== "/welcome/invite"
@@ -435,7 +443,7 @@ async function handleAuthCallback() {
           window.location.replace(inviteUrl.toString());
           return false;
         }
-        if (isOAuthCallbackReturn) {
+        if (!isExtensionAuthFlow && isOAuthCallbackReturn) {
           const returnTarget = getPostAuthReturnTarget();
           if (returnTarget) {
             clearPostAuthReturnTarget();
