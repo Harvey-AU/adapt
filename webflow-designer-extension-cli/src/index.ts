@@ -14,7 +14,7 @@ const API_BASE_STORAGE_KEY = "bbb_extension_api_base";
 const API_TOKEN_STORAGE_KEY = "bbb_extension_api_token_session";
 const AUTH_POPUP_WIDTH = 520;
 const AUTH_POPUP_HEIGHT = 760;
-const DEFAULT_BBB_APP_ORIGIN = "https://app.bluebandedbee.co";
+const DEFAULT_BBB_APP_ORIGIN = "https://adapt.app.goodnative.co";
 
 function isInputElement(el: Element | null): el is HTMLInputElement {
   return el instanceof HTMLInputElement;
@@ -53,7 +53,7 @@ function hydrateApiInputs() {
   }
 
   if (isInputElement(apiBaseUrlInput)) {
-    apiBaseUrlInput.value = savedBaseUrl || "https://app.bluebandedbee.co";
+    apiBaseUrlInput.value = savedBaseUrl || "https://adapt.app.goodnative.co";
   }
   if (isInputElement(apiTokenInput) && savedToken) {
     apiTokenInput.value = savedToken;
@@ -208,7 +208,7 @@ async function connectAccount() {
   } catch (_error) {
     apiStatusText.textContent = "Invalid API base URL.";
     apiDetailsText.textContent =
-      "Use full URL like https://app.bluebandedbee.co";
+      "Use full URL like https://adapt.app.goodnative.co";
     return;
   }
 
