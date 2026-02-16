@@ -53,7 +53,7 @@ function hydrateApiInputs() {
   }
 
   if (isInputElement(apiBaseUrlInput)) {
-    apiBaseUrlInput.value = savedBaseUrl || "https://adapt.app.goodnative.co";
+    apiBaseUrlInput.value = savedBaseUrl || DEFAULT_BBB_APP_ORIGIN;
   }
   if (isInputElement(apiTokenInput) && savedToken) {
     apiTokenInput.value = savedToken;
@@ -207,16 +207,12 @@ async function connectAccount() {
     baseOrigin = new URL(baseUrl).origin;
   } catch (_error) {
     apiStatusText.textContent = "Invalid API base URL.";
-    apiDetailsText.textContent =
-      "Use full URL like https://adapt.app.goodnative.co";
+    apiDetailsText.textContent = `Use full URL like ${DEFAULT_BBB_APP_ORIGIN}`;
     return;
   }
 
   const state = createAuthState();
-  const authBaseOrigin =
-    baseOrigin.includes("localhost") || baseOrigin.includes("127.0.0.1")
-      ? baseOrigin
-      : DEFAULT_BBB_APP_ORIGIN;
+  const authBaseOrigin = baseOrigin;
   const authUrl = new URL(`${authBaseOrigin}/extension-auth.html`);
   authUrl.searchParams.set("origin", window.location.origin);
   authUrl.searchParams.set("state", state);
