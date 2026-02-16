@@ -2094,6 +2094,9 @@ function initExtensionAuthPage() {
   }
 
   // Ensure the opener origin matches the declared target origin.
+  // Note: `document.referrer` can be empty with strict privacy/referrer policies.
+  // We intentionally fail closed here; opener checks + state + postMessage origin
+  // validation still provide defense in depth for the auth handoff.
   try {
     const referrerOrigin = document.referrer
       ? new URL(document.referrer).origin
