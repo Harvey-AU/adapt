@@ -131,8 +131,8 @@
     const isAuthCallbackPage = Boolean(window.BB_APP?.authCallback);
     const isExtensionAuthPage = Boolean(window.BB_APP?.extensionAuth);
 
-    // Callback/CLI auth pages must not block on optional third-party scripts.
-    if (!isCliAuthPage && !isAuthCallbackPage) {
+    // Callback/CLI/extension auth pages must not block on optional third-party scripts.
+    if (!isCliAuthPage && !isAuthCallbackPage && !isExtensionAuthPage) {
       await Promise.all([ensurePasswordStrength(), ensureTurnstile()]);
     }
     await ensureAuthBundle();
