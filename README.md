@@ -50,7 +50,7 @@ Built by the Goodnative team in Castlemaine, Victoria, Australia.
 
 ```bash
 # Clone the repository
-git clone https://github.com/Harvey-AU/blue-banded-bee.git
+git clone https://github.com/Harvey-AU/blue-banded-bee.git adapt
 cd adapt
 
 # Enable pre-commit hooks for automatic formatting
