@@ -3225,8 +3225,8 @@ Series of minor optimisations to improve throughput and resource usage.
     validation
   - Support for 8 social login providers: Google, Facebook, Slack, GitHub,
     Microsoft, Figma, LinkedIn + Email/Password
-  - Custom domain authentication using `adapt.auth.goodnative.co` for professional
-    OAuth flows
+  - Custom domain authentication using `adapt.auth.goodnative.co` for
+    professional OAuth flows
   - User and organisation management with automatic organisation creation on
     signup
   - Row Level Security (RLS) policies for secure multi-tenant data access

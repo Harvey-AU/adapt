@@ -22,13 +22,13 @@ Sync secrets from 1Password across local, preview, and production environments.
 
 ### Vault: "Adapt"
 
-| Item Type   | Item Name                   | Fields                                                                                    |
-| ----------- | --------------------------- | ----------------------------------------------------------------------------------------- |
-| Login       | `flyctl`                    | Token: `<FLY_API_TOKEN>`                                                                  |
-| Secure Note | `fly:adapt`  | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
+| Item Type   | Item Name               | Fields                                                                                    |
+| ----------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| Login       | `flyctl`                | Token: `<FLY_API_TOKEN>`                                                                  |
+| Secure Note | `fly:adapt`             | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
 | Secure Note | `fly:adapt-pr-template` | Shared preview secrets (no DATABASE_URL - comes from Supabase)                            |
-| Login       | `supabase-management`       | access-token, project-ref                                                                 |
-| Login       | `codecov`                   | token                                                                                     |
+| Login       | `supabase-management`   | access-token, project-ref                                                                 |
+| Login       | `codecov`               | token                                                                                     |
 
 ---
 
