@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/db"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"

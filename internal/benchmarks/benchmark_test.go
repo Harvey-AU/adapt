@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/cache"
-	"github.com/Harvey-AU/blue-banded-bee/internal/util"
+	"github.com/Harvey-AU/adapt/internal/cache"
+	"github.com/Harvey-AU/adapt/internal/util"
 )
 
 // Benchmark cache operations - hot path for URL deduplication

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/db"
 	"github.com/stretchr/testify/mock"
 )
 

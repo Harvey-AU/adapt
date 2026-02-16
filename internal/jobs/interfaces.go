@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/crawler"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/crawler"
+	"github.com/Harvey-AU/adapt/internal/db"
 )
 
 // CrawlerInterface defines the methods we need from the crawler
