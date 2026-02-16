@@ -1,8 +1,8 @@
-# Blue Banded Bee Attribute System
+# Adapt Attribute System
 
 ## Overview
 
-Blue Banded Bee uses a custom attribute system for data binding, templating, and
+Adapt uses a custom attribute system for data binding, templating, and
 interactions. All custom attributes use the `bbb-` namespace prefix (Blue Banded
 Bee).
 

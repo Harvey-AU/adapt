@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/crawler"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/crawler"
+	"github.com/Harvey-AU/adapt/internal/db"
 	"github.com/stretchr/testify/assert"
 )
 

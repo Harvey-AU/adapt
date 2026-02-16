@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-System design, database schema, and API specifications for Blue Banded Bee.
+System design, database schema, and API specifications for Adapt.
 
 ## 📄 Documents
 
@@ -15,8 +15,8 @@ System design, database schema, and API specifications for Blue Banded Bee.
 
 ## 🏗️ System Overview
 
-Blue Banded Bee uses a PostgreSQL-backed worker pool architecture for efficient
-URL crawling and cache warming.
+Adapt uses a PostgreSQL-backed worker pool architecture for efficient URL
+crawling and cache warming.
 
 ### Key Components
 

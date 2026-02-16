@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
-	"github.com/Harvey-AU/blue-banded-bee/internal/jobs"
-	"github.com/Harvey-AU/blue-banded-bee/internal/loops"
+	"github.com/Harvey-AU/adapt/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/db"
+	"github.com/Harvey-AU/adapt/internal/jobs"
+	"github.com/Harvey-AU/adapt/internal/loops"
 	"github.com/rs/zerolog/log"
 )
 
@@ -455,7 +455,7 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteHealthy(w, r, "blue-banded-bee", Version)
+	WriteHealthy(w, r, "adapt", Version)
 }
 
 // DatabaseHealthCheck handles database health check requests

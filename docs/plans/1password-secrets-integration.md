@@ -20,15 +20,15 @@ Sync secrets from 1Password across local, preview, and production environments.
 
 ## 1. 1Password Structure
 
-### Vault: "Blue Banded Bee"
+### Vault: "Adapt"
 
-| Item Type   | Item Name                         | Fields                                                                                    |
-| ----------- | --------------------------------- | ----------------------------------------------------------------------------------------- |
-| Login       | `flyctl`                          | Token: `<FLY_API_TOKEN>`                                                                  |
-| Secure Note | `fly:blue-banded-bee`             | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
-| Secure Note | `fly:blue-banded-bee-pr-template` | Shared preview secrets (no DATABASE_URL - comes from Supabase)                            |
-| Login       | `supabase-management`             | access-token, project-ref                                                                 |
-| Login       | `codecov`                         | token                                                                                     |
+| Item Type   | Item Name               | Fields                                                                                    |
+| ----------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| Login       | `flyctl`                | Token: `<FLY_API_TOKEN>`                                                                  |
+| Secure Note | `fly:adapt`             | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
+| Secure Note | `fly:adapt-pr-template` | Shared preview secrets (no DATABASE_URL - comes from Supabase)                            |
+| Login       | `supabase-management`   | access-token, project-ref                                                                 |
+| Login       | `codecov`               | token                                                                                     |
 
 ---
 
@@ -79,7 +79,7 @@ op inject -i .env.1password -o .env.local
 # Install
 pipx install 1password-secrets
 
-# Create Secure Note in 1Password titled: fly:blue-banded-bee
+# Create Secure Note in 1Password titled: fly:adapt
 # Add all secrets as fields:
 #   DATABASE_URL = postgresql://...
 #   SUPABASE_JWT_SECRET = ...
@@ -87,10 +87,10 @@ pipx install 1password-secrets
 #   etc.
 
 # Sync to Fly.io (uses biometric auth)
-1password-secrets fly import blue-banded-bee
+1password-secrets fly import adapt
 
 # Edit secrets (opens in 1Password)
-1password-secrets fly edit blue-banded-bee
+1password-secrets fly edit adapt
 ```
 
 **Benefits:**
@@ -109,7 +109,7 @@ available).
 ### Setup
 
 1. Create Service Account in 1Password Business console
-2. Grant read access to "Blue Banded Bee" vault
+2. Grant read access to "Adapt" vault
 3. Store token as `OP_SERVICE_ACCOUNT_TOKEN` in GitHub Secrets
 
 ### Workflow Updates
@@ -123,7 +123,7 @@ available).
     export-env: true
   env:
     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-    FLY_API_TOKEN: op://Blue Banded Bee/flyctl/token
+    FLY_API_TOKEN: op://Adapt/flyctl/token
 
 - uses: superfly/flyctl-actions/setup-flyctl@master
 - run: flyctl deploy --remote-only
@@ -138,7 +138,7 @@ available).
     export-env: true
   env:
     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-    CODECOV_TOKEN: op://Blue Banded Bee/codecov/token
+    CODECOV_TOKEN: op://Adapt/codecov/token
 ```
 
 #### `.github/workflows/review-apps.yml`
@@ -151,17 +151,14 @@ available).
   env:
     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
     # CI/CD
-    FLY_API_TOKEN: op://Blue Banded Bee/flyctl/token
-    SUPABASE_ACCESS_TOKEN: op://Blue Banded Bee/supabase-management/access-token
+    FLY_API_TOKEN: op://Adapt/flyctl/token
+    SUPABASE_ACCESS_TOKEN: op://Adapt/supabase-management/access-token
     # Shared app secrets
-    SENTRY_DSN: op://Blue Banded Bee/fly:blue-banded-bee/SENTRY_DSN
-    SLACK_CLIENT_ID: op://Blue Banded Bee/fly:blue-banded-bee/SLACK_CLIENT_ID
-    SLACK_CLIENT_SECRET:
-      op://Blue Banded Bee/fly:blue-banded-bee/SLACK_CLIENT_SECRET
-    SUPABASE_JWT_SECRET:
-      op://Blue Banded Bee/fly:blue-banded-bee/SUPABASE_JWT_SECRET
-    SUPABASE_SERVICE_ROLE_KEY:
-      op://Blue Banded Bee/fly:blue-banded-bee/SUPABASE_SERVICE_ROLE_KEY
+    SENTRY_DSN: op://Adapt/fly:adapt/SENTRY_DSN
+    SLACK_CLIENT_ID: op://Adapt/fly:adapt/SLACK_CLIENT_ID
+    SLACK_CLIENT_SECRET: op://Adapt/fly:adapt/SLACK_CLIENT_SECRET
+    SUPABASE_JWT_SECRET: op://Adapt/fly:adapt/SUPABASE_JWT_SECRET
+    SUPABASE_SERVICE_ROLE_KEY: op://Adapt/fly:adapt/SUPABASE_SERVICE_ROLE_KEY
 
 # DATABASE_URL comes from Supabase preview branch (per-PR)
 - name: Deploy with secrets
@@ -170,7 +167,7 @@ available).
       DATABASE_URL="${{ steps.supabase.outputs.preview_db_url }}" \
       SUPABASE_JWT_SECRET="$SUPABASE_JWT_SECRET" \
       ... \
-      --app blue-banded-bee-pr-${{ github.event.pull_request.number }} --stage
+      --app adapt-pr-${{ github.event.pull_request.number }} --stage
 ```
 
 ---
@@ -191,9 +188,9 @@ available).
 
 ### Phase 1: 1Password Setup
 
-1. Create vault "Blue Banded Bee"
+1. Create vault "Adapt"
 2. Create `flyctl` Login item with Token field
-3. Create `fly:blue-banded-bee` Secure Note with all production secrets
+3. Create `fly:adapt` Secure Note with all production secrets
 4. Create Service Account for GitHub Actions
 
 ### Phase 2: Local Dev
@@ -219,7 +216,7 @@ available).
 ## 7. Secret Rotation
 
 1. Update secret in 1Password
-2. For Fly.io: `1password-secrets fly import blue-banded-bee`
+2. For Fly.io: `1password-secrets fly import adapt`
 3. For CI: Next workflow run picks up new value automatically
 
 ---

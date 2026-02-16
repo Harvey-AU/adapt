@@ -1,4 +1,4 @@
-# Supabase Simplification Analysis for Blue Banded Bee
+# Supabase Simplification Analysis for Adapt
 
 **Date**: 2026-01-03 **Status**: Approved for implementation
 
@@ -276,7 +276,7 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({
           channel: slackUserId,
           blocks,
-          text: notification.subject || "Notification from Blue Banded Bee",
+          text: notification.subject || "Notification from Adapt",
         }),
       }
     );

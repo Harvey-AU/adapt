@@ -16,13 +16,13 @@ import (
 
 	"runtime/trace"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/api"
-	"github.com/Harvey-AU/blue-banded-bee/internal/crawler"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
-	"github.com/Harvey-AU/blue-banded-bee/internal/jobs"
-	"github.com/Harvey-AU/blue-banded-bee/internal/loops"
-	"github.com/Harvey-AU/blue-banded-bee/internal/notifications"
-	"github.com/Harvey-AU/blue-banded-bee/internal/observability"
+	"github.com/Harvey-AU/adapt/internal/api"
+	"github.com/Harvey-AU/adapt/internal/crawler"
+	"github.com/Harvey-AU/adapt/internal/db"
+	"github.com/Harvey-AU/adapt/internal/jobs"
+	"github.com/Harvey-AU/adapt/internal/loops"
+	"github.com/Harvey-AU/adapt/internal/notifications"
+	"github.com/Harvey-AU/adapt/internal/observability"
 	"github.com/getsentry/sentry-go"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
@@ -469,7 +469,7 @@ func main() {
 	if config.ObservabilityEnabled {
 		obsProviders, err = observability.Init(context.Background(), observability.Config{
 			Enabled:        true,
-			ServiceName:    "blue-banded-bee",
+			ServiceName:    "adapt",
 			Environment:    config.Env,
 			OTLPEndpoint:   strings.TrimSpace(config.OTLPEndpoint),
 			OTLPHeaders:    parseOTLPHeaders(config.OTLPHeaders),
@@ -732,7 +732,7 @@ func main() {
 		log.Info().Str("port", config.Port).Msg("Starting server")
 
 		baseURL := fmt.Sprintf("http://localhost:%s", config.Port)
-		log.Info().Msg("🚀 Blue Banded Bee Development Server Ready!")
+		log.Info().Msg("🚀 Adapt Development Server Ready!")
 		log.Info().Str("homepage", baseURL).Msg("📱 Open Homepage")
 		log.Info().Str("dashboard", baseURL+"/dashboard").Msg("📊 Open Dashboard")
 		log.Info().Str("health", baseURL+"/health").Msg("🔍 Health Check")
@@ -889,7 +889,7 @@ func setupLogging(config *Config) {
 		log.Logger = zerolog.New(os.Stdout).
 			With().
 			Timestamp().
-			Str("service", "blue-banded-bee").
+			Str("service", "adapt").
 			Logger()
 	}
 }

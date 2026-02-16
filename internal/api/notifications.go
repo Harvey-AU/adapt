@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/db"
 )
 
 // NotificationResponse is the JSON response for a notification

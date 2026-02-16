@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/crawler"
+	"github.com/Harvey-AU/adapt/internal/crawler"
 	"github.com/stretchr/testify/mock"
 )
 

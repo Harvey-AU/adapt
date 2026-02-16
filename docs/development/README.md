@@ -1,7 +1,6 @@
 # Development Documentation
 
-Setup guides, workflow processes, and debugging tools for Blue Banded Bee
-development.
+Setup guides, workflow processes, and debugging tools for Adapt development.
 
 ## 📄 Documents
 

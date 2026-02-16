@@ -1,4 +1,4 @@
--- Comprehensive Initial Schema for Blue Banded Bee
+-- Comprehensive Initial Schema for Adapt
 -- This migration creates the complete schema based on the setupSchema() function in internal/db/db.go
 -- and incorporates all enhancements from subsequent migrations
 

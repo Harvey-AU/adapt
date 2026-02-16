@@ -217,7 +217,7 @@ function updatePageTitle(title) {
   if (!title) {
     return;
   }
-  document.title = `${title} · Blue Banded Bee`;
+  document.title = `${title} · Adapt`;
 
   const navTitle = document.getElementById("globalNavTitle");
   const navSeparator = document.getElementById("globalNavSeparator");
