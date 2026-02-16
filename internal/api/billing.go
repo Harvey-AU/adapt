@@ -26,6 +26,115 @@ type billingCheckoutRequest struct {
 
 var paddleHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
+type paddleCheckoutItem struct {
+	PriceID  string `json:"price_id"`
+	Quantity int    `json:"quantity"`
+}
+
+type paddleCheckoutCustomData struct {
+	OrganisationID string `json:"organisation_id"`
+	RequestedBy    string `json:"requested_by"`
+	PlanID         string `json:"plan_id"`
+}
+
+type paddleCheckoutPayload struct {
+	Items      []paddleCheckoutItem     `json:"items"`
+	CustomData paddleCheckoutCustomData `json:"custom_data"`
+}
+
+type paddlePortalSessionPayload struct {
+	ReturnURL string `json:"return_url"`
+}
+
+type paddleAPIError struct {
+	Detail  string `json:"detail"`
+	Message string `json:"message"`
+}
+
+type paddleAPIEnvelope struct {
+	Data  json.RawMessage `json:"data"`
+	Error paddleAPIError  `json:"error"`
+}
+
+type paddleCheckoutResponse struct {
+	Checkout struct {
+		URL string `json:"url"`
+	} `json:"checkout"`
+	CheckoutURL string `json:"checkout_url"`
+}
+
+type paddlePortalURLs struct {
+	General struct {
+		Overview string `json:"overview"`
+	} `json:"general"`
+}
+
+type paddlePortalResponse struct {
+	URL  string           `json:"url"`
+	URLs paddlePortalURLs `json:"urls"`
+}
+
+type paddleWebhookEvent struct {
+	EventID   string          `json:"event_id"`
+	EventType string          `json:"event_type"`
+	Data      json.RawMessage `json:"data"`
+	Meta      json.RawMessage `json:"meta"`
+}
+
+type paddleWebhookOrgLookup struct {
+	CustomData struct {
+		OrganisationID string `json:"organisation_id"`
+	} `json:"custom_data"`
+	CustomerID     string `json:"customer_id"`
+	ID             string `json:"id"`
+	SubscriptionID string `json:"subscription_id"`
+}
+
+type paddleSubscriptionItem struct {
+	Price struct {
+		ID string `json:"id"`
+	} `json:"price"`
+	PriceID string `json:"price_id"`
+}
+
+type paddleSubscriptionData struct {
+	ID                   string `json:"id"`
+	SubscriptionID       string `json:"subscription_id"`
+	CustomerID           string `json:"customer_id"`
+	Status               string `json:"status"`
+	NextBilledAt         string `json:"next_billed_at"`
+	CurrentBillingPeriod struct {
+		EndsAt string `json:"ends_at"`
+	} `json:"current_billing_period"`
+	Items []paddleSubscriptionItem `json:"items"`
+}
+
+type paddleTransactionTotals struct {
+	GrandTotal   string `json:"grand_total"`
+	Total        string `json:"total"`
+	CurrencyCode string `json:"currency_code"`
+}
+
+type paddleTransactionDetails struct {
+	InvoiceNumber string                  `json:"invoice_number"`
+	Totals        paddleTransactionTotals `json:"totals"`
+	ReceiptURL    string                  `json:"receipt_url"`
+}
+
+type paddleTransactionData struct {
+	ID             string                   `json:"id"`
+	SubscriptionID string                   `json:"subscription_id"`
+	CustomerID     string                   `json:"customer_id"`
+	Status         string                   `json:"status"`
+	InvoiceID      string                   `json:"invoice_id"`
+	CurrencyCode   string                   `json:"currency_code"`
+	BilledAt       string                   `json:"billed_at"`
+	UpdatedAt      string                   `json:"updated_at"`
+	CreatedAt      string                   `json:"created_at"`
+	InvoiceURL     string                   `json:"invoice_url"`
+	Details        paddleTransactionDetails `json:"details"`
+}
+
 // BillingHandler handles GET /v1/billing.
 func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -231,17 +340,17 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	payload := map[string]any{
-		"items": []map[string]any{
+	payload := paddleCheckoutPayload{
+		Items: []paddleCheckoutItem{
 			{
-				"price_id": paddlePriceID.String,
-				"quantity": 1,
+				PriceID:  paddlePriceID.String,
+				Quantity: 1,
 			},
 		},
-		"custom_data": map[string]any{
-			"organisation_id": orgID,
-			"requested_by":    userClaims.UserID,
-			"plan_id":         req.PlanID,
+		CustomData: paddleCheckoutCustomData{
+			OrganisationID: orgID,
+			RequestedBy:    userClaims.UserID,
+			PlanID:         req.PlanID,
 		},
 	}
 
@@ -250,11 +359,16 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		InternalError(w, r, fmt.Errorf("failed to create checkout transaction: %w", err))
 		return
 	}
+	var checkout paddleCheckoutResponse
+	if err := json.Unmarshal(data, &checkout); err != nil {
+		InternalError(w, r, fmt.Errorf("failed to decode checkout response: %w", err))
+		return
+	}
 
-	checkoutURL := extractString(data, "checkout", "url")
+	checkoutURL := checkout.Checkout.URL
 	if checkoutURL == "" {
 		// Fallback for alternate API payloads.
-		checkoutURL = extractString(data, "checkout_url")
+		checkoutURL = checkout.CheckoutURL
 	}
 	if checkoutURL == "" {
 		InternalError(w, r, fmt.Errorf("paddle response missing checkout URL"))
@@ -302,8 +416,8 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := map[string]any{
-		"return_url": getAppURL() + "/settings/billing",
+	payload := paddlePortalSessionPayload{
+		ReturnURL: getAppURL() + "/settings/billing",
 	}
 	data, err := h.callPaddleAPI(
 		r.Context(),
@@ -315,10 +429,15 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 		InternalError(w, r, fmt.Errorf("failed to create billing portal session: %w", err))
 		return
 	}
+	var portal paddlePortalResponse
+	if err := json.Unmarshal(data, &portal); err != nil {
+		InternalError(w, r, fmt.Errorf("failed to decode billing portal response: %w", err))
+		return
+	}
 
-	portalURL := extractString(data, "url")
+	portalURL := portal.URL
 	if portalURL == "" {
-		portalURL = extractString(data, "urls", "general", "overview")
+		portalURL = portal.URLs.General.Overview
 	}
 	if portalURL == "" {
 		InternalError(w, r, fmt.Errorf("paddle response missing portal URL"))
@@ -361,12 +480,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var event struct {
-		EventID   string         `json:"event_id"`
-		EventType string         `json:"event_type"`
-		Data      map[string]any `json:"data"`
-		Meta      map[string]any `json:"meta"`
-	}
+	var event paddleWebhookEvent
 	if err := json.Unmarshal(body, &event); err != nil {
 		BadRequest(w, r, "Invalid webhook payload")
 		return
@@ -431,16 +545,21 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 	WriteSuccess(w, r, nil, "Webhook processed successfully")
 }
 
-func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType string, data map[string]any) error {
+func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType string, data json.RawMessage) error {
 	if len(data) == 0 {
 		return nil
 	}
 
-	orgID := extractString(data, "custom_data", "organisation_id")
-	customerID := extractString(data, "customer_id")
-	subscriptionID := extractString(data, "id")
+	var lookup paddleWebhookOrgLookup
+	if err := json.Unmarshal(data, &lookup); err != nil {
+		return fmt.Errorf("failed to decode webhook event data: %w", err)
+	}
+
+	orgID := lookup.CustomData.OrganisationID
+	customerID := lookup.CustomerID
+	subscriptionID := lookup.ID
 	if strings.HasPrefix(eventType, "transaction.") {
-		subscriptionID = extractString(data, "subscription_id")
+		subscriptionID = lookup.SubscriptionID
 	}
 	if orgID == "" && subscriptionID != "" {
 		_ = h.DB.GetDB().QueryRowContext(ctx, `
@@ -463,21 +582,25 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 	}
 
 	if strings.HasPrefix(eventType, "subscription.") {
-		priceID := extractString(data, "items", "0", "price", "id")
-		if priceID == "" {
-			priceID = extractString(data, "items", "0", "price_id")
+		var sub paddleSubscriptionData
+		if err := json.Unmarshal(data, &sub); err != nil {
+			return fmt.Errorf("failed to decode subscription webhook data: %w", err)
+		}
+		priceID := ""
+		if len(sub.Items) > 0 {
+			priceID = firstNonEmpty(sub.Items[0].Price.ID, sub.Items[0].PriceID)
 		}
 		if subscriptionID == "" {
-			subscriptionID = extractString(data, "subscription_id")
+			subscriptionID = sub.SubscriptionID
 		}
-		status := strings.ToLower(extractString(data, "status"))
+		status := strings.ToLower(sub.Status)
 		if status == "" {
 			status = "active"
 		}
 		status = normaliseSubscriptionStatus(status)
 		periodEnd := parseAnyTimestamp(
-			extractString(data, "next_billed_at"),
-			extractString(data, "current_billing_period", "ends_at"),
+			sub.NextBilledAt,
+			sub.CurrentBillingPeriod.EndsAt,
 		)
 
 		_, err := h.DB.GetDB().ExecContext(ctx, `
@@ -496,35 +619,35 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 	}
 
 	if strings.HasPrefix(eventType, "transaction.") {
-		txID := extractString(data, "id")
+		var txData paddleTransactionData
+		if err := json.Unmarshal(data, &txData); err != nil {
+			return fmt.Errorf("failed to decode transaction webhook data: %w", err)
+		}
+		txID := txData.ID
 		if txID == "" {
 			return nil
 		}
 
-		status := strings.ToLower(extractString(data, "status"))
+		status := strings.ToLower(txData.Status)
 		if status == "" {
 			status = "paid"
 		}
 		status = normaliseInvoiceStatus(status)
-		invoiceID := extractString(data, "invoice_id")
-		invoiceNumber := extractString(data, "details", "invoice_number")
-		currency := extractString(data, "currency_code")
-		if currency == "" {
-			currency = extractString(data, "details", "totals", "currency_code")
-		}
+		invoiceID := txData.InvoiceID
+		invoiceNumber := txData.Details.InvoiceNumber
+		currency := firstNonEmpty(txData.CurrencyCode, txData.Details.Totals.CurrencyCode)
 		totalCents := parseAnyInt(
-			extractString(data, "details", "totals", "grand_total"),
-			extractString(data, "details", "totals", "total"),
-			extractString(data, "totals", "grand_total"),
+			txData.Details.Totals.GrandTotal,
+			txData.Details.Totals.Total,
 		)
 		billedAt := parseAnyTimestamp(
-			extractString(data, "billed_at"),
-			extractString(data, "updated_at"),
-			extractString(data, "created_at"),
+			txData.BilledAt,
+			txData.UpdatedAt,
+			txData.CreatedAt,
 		)
-		invoiceURL := extractString(data, "invoice_url")
+		invoiceURL := txData.InvoiceURL
 		if invoiceURL == "" {
-			invoiceURL = extractString(data, "details", "receipt_url")
+			invoiceURL = txData.Details.ReceiptURL
 		}
 
 		_, err := h.DB.GetDB().ExecContext(ctx, `
@@ -557,7 +680,7 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 	return nil
 }
 
-func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payload map[string]any) (map[string]any, error) {
+func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payload any) (json.RawMessage, error) {
 	apiKey := strings.TrimSpace(os.Getenv("PADDLE_API_KEY"))
 	if apiKey == "" {
 		return nil, fmt.Errorf("PADDLE_API_KEY is not configured")
@@ -596,20 +719,15 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 		return nil, fmt.Errorf("failed to read paddle response: %w", err)
 	}
 
-	var parsed map[string]any
+	var parsed paddleAPIEnvelope
 	if len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, &parsed); err != nil {
 			return nil, fmt.Errorf("failed to decode paddle response: %w", err)
 		}
-	} else {
-		parsed = map[string]any{}
 	}
 
 	if resp.StatusCode >= 300 {
-		msg := extractString(parsed, "error", "detail")
-		if msg == "" {
-			msg = extractString(parsed, "error", "message")
-		}
+		msg := firstNonEmpty(parsed.Error.Detail, parsed.Error.Message)
 		if msg == "" {
 			msg = string(respBody)
 		}
@@ -619,12 +737,7 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 		return nil, fmt.Errorf("paddle API error (%d): %s", resp.StatusCode, msg)
 	}
 
-	if dataRaw, ok := parsed["data"]; ok {
-		if dataMap, ok := dataRaw.(map[string]any); ok {
-			return dataMap, nil
-		}
-	}
-	return parsed, nil
+	return parsed.Data, nil
 }
 
 func verifyPaddleSignature(signatureHeader string, body []byte, secret string) bool {
@@ -718,37 +831,12 @@ func normaliseInvoiceStatus(status string) string {
 	}
 }
 
-func extractString(m map[string]any, path ...string) string {
-	if len(path) == 0 || m == nil {
-		return ""
-	}
-	var cur any = m
-	for _, segment := range path {
-		switch typed := cur.(type) {
-		case map[string]any:
-			cur = typed[segment]
-		case []any:
-			idx, err := strconv.Atoi(segment)
-			if err != nil || idx < 0 || idx >= len(typed) {
-				return ""
-			}
-			cur = typed[idx]
-		default:
-			return ""
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
 		}
 	}
-	switch v := cur.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case fmt.Stringer:
-		return strings.TrimSpace(v.String())
-	case float64:
-		return strconv.FormatInt(int64(v), 10)
-	case int:
-		return strconv.Itoa(v)
-	case int64:
-		return strconv.FormatInt(v, 10)
-	default:
-		return ""
-	}
+	return ""
 }
