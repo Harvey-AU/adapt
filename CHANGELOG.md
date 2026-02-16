@@ -458,7 +458,7 @@ On merge, CI will:
   - New `users_own_jobs_simple` RLS policy for fast user-based filtering
 - **Realtime Notification Updates**: Badge updates instantly when jobs complete
   - Supabase Postgres Changes subscription for `notifications` table
-  - WebSocket CSP configured for `wss://auth.goodnative.co`
+  - WebSocket CSP configured for `wss://adapt.auth.goodnative.co`
   - 200ms delay before querying to avoid transaction visibility race condition
 
 ### Changed
@@ -2728,7 +2728,7 @@ Series of minor optimisations to improve throughput and resource usage.
     only
   - **Production application**: `https://adapt.app.goodnative.co` - Live
     application, services, demo pages
-  - **Authentication service**: `https://auth.goodnative.co` - Supabase
+  - **Authentication service**: `https://adapt.auth.goodnative.co` - Supabase
     authentication (unchanged)
   - Updated all documentation files to clearly specify domain purposes and usage
     contexts
@@ -3225,7 +3225,7 @@ Series of minor optimisations to improve throughput and resource usage.
     validation
   - Support for 8 social login providers: Google, Facebook, Slack, GitHub,
     Microsoft, Figma, LinkedIn + Email/Password
-  - Custom domain authentication using `auth.goodnative.co` for professional
+  - Custom domain authentication using `adapt.auth.goodnative.co` for professional
     OAuth flows
   - User and organisation management with automatic organisation creation on
     signup

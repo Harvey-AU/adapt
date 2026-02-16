@@ -25,8 +25,8 @@ Sync secrets from 1Password across local, preview, and production environments.
 | Item Type   | Item Name                   | Fields                                                                                    |
 | ----------- | --------------------------- | ----------------------------------------------------------------------------------------- |
 | Login       | `flyctl`                    | Token: `<FLY_API_TOKEN>`                                                                  |
-| Secure Note | `fly:adapt-app-goodnative`  | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
-| Secure Note | `fly:adapt-app-pr-template` | Shared preview secrets (no DATABASE_URL - comes from Supabase)                            |
+| Secure Note | `fly:adapt`  | DATABASE_URL, SUPABASE_JWT_SECRET, SENTRY_DSN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, etc. |
+| Secure Note | `fly:adapt-pr-template` | Shared preview secrets (no DATABASE_URL - comes from Supabase)                            |
 | Login       | `supabase-management`       | access-token, project-ref                                                                 |
 | Login       | `codecov`                   | token                                                                                     |
 
@@ -79,7 +79,7 @@ op inject -i .env.1password -o .env.local
 # Install
 pipx install 1password-secrets
 
-# Create Secure Note in 1Password titled: fly:adapt-app-goodnative
+# Create Secure Note in 1Password titled: fly:adapt
 # Add all secrets as fields:
 #   DATABASE_URL = postgresql://...
 #   SUPABASE_JWT_SECRET = ...
@@ -87,10 +87,10 @@ pipx install 1password-secrets
 #   etc.
 
 # Sync to Fly.io (uses biometric auth)
-1password-secrets fly import adapt-app-goodnative
+1password-secrets fly import adapt
 
 # Edit secrets (opens in 1Password)
-1password-secrets fly edit adapt-app-goodnative
+1password-secrets fly edit adapt
 ```
 
 **Benefits:**
@@ -154,11 +154,11 @@ available).
     FLY_API_TOKEN: op://Adapt/flyctl/token
     SUPABASE_ACCESS_TOKEN: op://Adapt/supabase-management/access-token
     # Shared app secrets
-    SENTRY_DSN: op://Adapt/fly:adapt-app-goodnative/SENTRY_DSN
-    SLACK_CLIENT_ID: op://Adapt/fly:adapt-app-goodnative/SLACK_CLIENT_ID
-    SLACK_CLIENT_SECRET: op://Adapt/fly:adapt-app-goodnative/SLACK_CLIENT_SECRET
-    SUPABASE_JWT_SECRET: op://Adapt/fly:adapt-app-goodnative/SUPABASE_JWT_SECRET
-    SUPABASE_SERVICE_ROLE_KEY: op://Adapt/fly:adapt-app-goodnative/SUPABASE_SERVICE_ROLE_KEY
+    SENTRY_DSN: op://Adapt/fly:adapt/SENTRY_DSN
+    SLACK_CLIENT_ID: op://Adapt/fly:adapt/SLACK_CLIENT_ID
+    SLACK_CLIENT_SECRET: op://Adapt/fly:adapt/SLACK_CLIENT_SECRET
+    SUPABASE_JWT_SECRET: op://Adapt/fly:adapt/SUPABASE_JWT_SECRET
+    SUPABASE_SERVICE_ROLE_KEY: op://Adapt/fly:adapt/SUPABASE_SERVICE_ROLE_KEY
 
 # DATABASE_URL comes from Supabase preview branch (per-PR)
 - name: Deploy with secrets
@@ -167,7 +167,7 @@ available).
       DATABASE_URL="${{ steps.supabase.outputs.preview_db_url }}" \
       SUPABASE_JWT_SECRET="$SUPABASE_JWT_SECRET" \
       ... \
-      --app adapt-app-pr-${{ github.event.pull_request.number }} --stage
+      --app adapt-pr-${{ github.event.pull_request.number }} --stage
 ```
 
 ---
@@ -190,7 +190,7 @@ available).
 
 1. Create vault "Adapt"
 2. Create `flyctl` Login item with Token field
-3. Create `fly:adapt-app-goodnative` Secure Note with all production secrets
+3. Create `fly:adapt` Secure Note with all production secrets
 4. Create Service Account for GitHub Actions
 
 ### Phase 2: Local Dev
@@ -216,7 +216,7 @@ available).
 ## 7. Secret Rotation
 
 1. Update secret in 1Password
-2. For Fly.io: `1password-secrets fly import adapt-app-goodnative`
+2. For Fly.io: `1password-secrets fly import adapt`
 3. For CI: Next workflow run picks up new value automatically
 
 ---

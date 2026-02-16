@@ -469,7 +469,7 @@ func main() {
 	if config.ObservabilityEnabled {
 		obsProviders, err = observability.Init(context.Background(), observability.Config{
 			Enabled:        true,
-			ServiceName:    "adapt-app-goodnative",
+			ServiceName:    "adapt",
 			Environment:    config.Env,
 			OTLPEndpoint:   strings.TrimSpace(config.OTLPEndpoint),
 			OTLPHeaders:    parseOTLPHeaders(config.OTLPHeaders),
@@ -889,7 +889,7 @@ func setupLogging(config *Config) {
 		log.Logger = zerolog.New(os.Stdout).
 			With().
 			Timestamp().
-			Str("service", "adapt-app-goodnative").
+			Str("service", "adapt").
 			Logger()
 	}
 }

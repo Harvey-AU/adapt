@@ -450,7 +450,7 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteHealthy(w, r, "adapt-app-goodnative", Version)
+	WriteHealthy(w, r, "adapt", Version)
 }
 
 // DatabaseHealthCheck handles database health check requests

@@ -99,7 +99,7 @@ jobs:
 
       - name: Build Docker image locally
         run:
-          docker build -t adapt-app-goodnative:pr-${{ github.event.number }} .
+          docker build -t adapt:pr-${{ github.event.number }} .
 
       - name: Deploy Review App
         id: deploy
@@ -125,7 +125,7 @@ jobs:
           fi
 
           # Create review app name
-          APP_NAME="adapt-app-pr-${{ github.event.number }}"
+          APP_NAME="adapt-pr-${{ github.event.number }}"
 
           # Check if app exists, create if not
           if ! flyctl apps list | grep -q "$APP_NAME"; then
@@ -181,7 +181,7 @@ jobs:
             --app $APP_NAME \
             --config .fly/review_apps.toml \
             --local-only \
-            --image adapt-app-goodnative:pr-${{ github.event.number }}
+            --image adapt:pr-${{ github.event.number }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -189,7 +189,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const appName = `adapt-app-pr-${{ github.event.number }}`;
+            const appName = `adapt-pr-${{ github.event.number }}`;
             const appUrl = `https://${appName}.fly.dev`;
             const dbType = `${{ steps.deploy.outputs.db_type }}`;
             const dbLabel = dbType === 'preview' ? 'Supabase preview branch' : 'Shared test database';
@@ -223,7 +223,7 @@ jobs:
 
       - name: Destroy Review App
         run: |
-          APP_NAME="adapt-app-pr-${{ github.event.number }}"
+          APP_NAME="adapt-pr-${{ github.event.number }}"
           flyctl apps destroy $APP_NAME --yes || echo "App may not exist"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

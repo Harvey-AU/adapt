@@ -90,7 +90,7 @@ func Init(ctx context.Context, cfg Config) (*Providers, error) {
 	}
 
 	if cfg.ServiceName == "" {
-		cfg.ServiceName = "adapt-app-goodnative"
+		cfg.ServiceName = "adapt"
 	}
 
 	res, err := resource.New(ctx,
@@ -166,7 +166,7 @@ func Init(ctx context.Context, cfg Config) (*Providers, error) {
 	otel.SetMeterProvider(meterProvider)
 
 	initOnce.Do(func() {
-		workerTracer = tracerProvider.Tracer("adapt-app-goodnative/worker")
+		workerTracer = tracerProvider.Tracer("adapt/worker")
 		_ = initWorkerInstruments(meterProvider)
 		_ = initJobInstruments(meterProvider)
 		_ = initDBPoolInstruments(meterProvider)
@@ -230,7 +230,7 @@ func initWorkerInstruments(meterProvider *sdkmetric.MeterProvider) error {
 		return nil
 	}
 
-	meter := meterProvider.Meter("adapt-app-goodnative/worker")
+	meter := meterProvider.Meter("adapt/worker")
 
 	var err error
 	workerTaskDuration, err = meter.Float64Histogram(
@@ -321,7 +321,7 @@ func initJobInstruments(meterProvider *sdkmetric.MeterProvider) error {
 		return nil
 	}
 
-	meter := meterProvider.Meter("adapt-app-goodnative/jobs")
+	meter := meterProvider.Meter("adapt/jobs")
 
 	var err error
 	jobRunningTasksGauge, err = meter.Int64Gauge(
@@ -376,7 +376,7 @@ func initDBPoolInstruments(meterProvider *sdkmetric.MeterProvider) error {
 		return nil
 	}
 
-	meter := meterProvider.Meter("adapt-app-goodnative/db_pool")
+	meter := meterProvider.Meter("adapt/db_pool")
 
 	var err error
 	dbPoolInUseGauge, err = meter.Int64Gauge(
@@ -465,7 +465,7 @@ type WorkerTaskMetrics struct {
 func StartWorkerTaskSpan(ctx context.Context, info WorkerTaskSpanInfo) (context.Context, trace.Span) {
 	t := workerTracer
 	if t == nil {
-		t = otel.Tracer("adapt-app-goodnative/worker")
+		t = otel.Tracer("adapt/worker")
 	}
 
 	attrs := []attribute.KeyValue{

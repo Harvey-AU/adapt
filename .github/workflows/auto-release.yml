@@ -7,10 +7,10 @@ name: Auto Release
 # - Name: "Adapt Release Automation"
 # - Type: Fine-grained token
 # - Expiration: 365 days (expires ~1 year from creation)
-# - Repository: Harvey-AU/adapt-app-goodnative
+# - Repository: Harvey-AU/adapt
 # - Permissions: Contents (read/write), Pull requests (read/write)
 # - Location: https://github.com/settings/tokens?type=beta
-# - Secret: https://github.com/Harvey-AU/adapt-app-goodnative/settings/secrets/actions
+# - Secret: https://github.com/Harvey-AU/adapt/settings/secrets/actions
 #
 # When to renew:
 # - GitHub will email you before expiration

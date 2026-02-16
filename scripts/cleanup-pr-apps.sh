@@ -19,7 +19,7 @@ if ! command -v gh &> /dev/null; then
 fi
 
 echo "🔍 Fetching all Fly.io apps..."
-FLY_APPS=$(flyctl apps list | grep "adapt-app-pr-" | awk '{print $1}' || true)
+FLY_APPS=$(flyctl apps list | grep "adapt-pr-" | awk '{print $1}' || true)
 
 if [ -z "$FLY_APPS" ]; then
     echo "✅ No PR apps found!"
@@ -45,8 +45,8 @@ echo ""
 
 # Process each app
 for APP in $FLY_APPS; do
-    # Extract PR number from app name (e.g., adapt-app-pr-114 -> 114)
-    PR_NUM=$(echo "$APP" | sed 's/adapt-app-pr-//')
+    # Extract PR number from app name (e.g., adapt-pr-114 -> 114)
+    PR_NUM=$(echo "$APP" | sed 's/adapt-pr-//')
 
     # Check if this PR is still open
     if echo "$OPEN_PRS" | grep -q "^${PR_NUM}$"; then

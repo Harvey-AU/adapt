@@ -472,7 +472,7 @@ patterns and lessons learned.
 
 - ✅ **Notification Badge**: Real-time updates when jobs complete (v0.20.0)
   - Postgres Changes subscription on `notifications` table
-  - WebSocket CSP configured for `wss://auth.goodnative.co`
+  - WebSocket CSP configured for `wss://adapt.auth.goodnative.co`
   - 200ms query delay to avoid transaction visibility race condition
 
 **Planned:**

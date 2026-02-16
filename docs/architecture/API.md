@@ -1007,7 +1007,7 @@ POST /v1/webhooks
 Authorization: Bearer <token>
 
 {
-  "url": "https://example.com/webhooks/adapt-app-goodnative",
+  "url": "https://example.com/webhooks/adapt",
   "events": ["job.completed", "job.failed"],
   "secret": "webhook_secret_123"
 }
@@ -1144,9 +1144,9 @@ Authorization: Bearer <token>
   (default `:9464`) under `/metrics`. Example scrape configuration:
 
 ```yaml
-- job_name: adapt-app-goodnative
+- job_name: adapt
   static_configs:
-    - targets: ["adapt-app-goodnative-prod.internal:9464"]
+    - targets: ["adapt-prod.internal:9464"]
 ```
 
 Worker task counters (`bee_worker_task_total`) and histograms

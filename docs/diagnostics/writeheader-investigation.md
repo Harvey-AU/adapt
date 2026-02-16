@@ -73,13 +73,13 @@ LOG_LEVEL=debug
 Or use the CLI flag:
 
 ```bash
-./adapt-app-goodnative --log-level debug
+./adapt --log-level debug
 ```
 
 ### Step 2: Monitor Production Logs
 
 ```bash
-flyctl logs --app adapt-app-goodnative | grep -E "DIAGNOSTIC|superfluous"
+flyctl logs --app adapt | grep -E "DIAGNOSTIC|superfluous"
 ```
 
 ### Step 3: Analyse Stack Traces

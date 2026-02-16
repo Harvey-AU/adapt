@@ -47,7 +47,7 @@ def _config_dir() -> Path:
 
     xdg = os.environ.get("XDG_CONFIG_HOME")
     base_path = Path(xdg) if xdg else Path.home() / ".config"
-    return base_path / "adapt-app-goodnative" / "auth"
+    return base_path / "adapt" / "auth"
 
 
 CONFIG_DIR = _config_dir()
