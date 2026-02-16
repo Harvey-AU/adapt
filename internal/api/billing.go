@@ -355,8 +355,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if !verifyPaddleSignature(r.Header.Get("Paddle-Signature"), body, webhookSecret) {
 		logger.Warn().
-			Str("remote_addr", r.RemoteAddr).
-			Str("signature", r.Header.Get("Paddle-Signature")).
+			Bool("signature_present", r.Header.Get("Paddle-Signature") != "").
 			Msg("Paddle webhook signature verification failed")
 		Unauthorised(w, r, "Invalid webhook signature")
 		return
