@@ -576,7 +576,7 @@ func (h *Handler) ServeExtensionAuth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, max-age=0")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-	http.ServeFile(w, r, "extension-auth.html")
+	http.ServeFile(w, r, "web/templates/extension-auth.html")
 }
 
 // ServeJobDetails serves the standalone job details page
