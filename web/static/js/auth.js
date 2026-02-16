@@ -2104,7 +2104,19 @@ function initExtensionAuthPage() {
     const referrerOrigin = document.referrer
       ? new URL(document.referrer).origin
       : "";
-    if (!referrerOrigin || referrerOrigin !== targetOrigin) {
+    const targetHost = new URL(targetOrigin).hostname.toLowerCase();
+    const isLocalTarget =
+      targetHost === "localhost" || targetHost === "127.0.0.1";
+
+    if (!referrerOrigin) {
+      // Some browser/privacy settings omit referrer entirely. Permit this only
+      // for local development origins and rely on opener + state + postMessage
+      // target validation for the remaining checks.
+      if (!isLocalTarget) {
+        setStatus("Origin mismatch. Please relaunch from the extension.", true);
+        return;
+      }
+    } else if (referrerOrigin !== targetOrigin) {
       setStatus("Origin mismatch. Please relaunch from the extension.", true);
       return;
     }
