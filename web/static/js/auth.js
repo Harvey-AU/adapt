@@ -1,5 +1,5 @@
 /**
- * Blue Banded Bee Unified Authentication System
+ * Adapt Unified Authentication System
  * Core authentication logic extracted from dashboard.html
  *
  * Handles:

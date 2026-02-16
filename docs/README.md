@@ -1,6 +1,6 @@
 # Documentation
 
-Complete documentation for the Blue Banded Bee project.
+Complete documentation for the Adapt project.
 
 ## 📁 Documentation Structure
 

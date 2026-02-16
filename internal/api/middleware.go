@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -185,25 +187,83 @@ func CrossOriginProtectionMiddleware(next http.Handler) http.Handler {
 	return http.NewCrossOriginProtection().Handler(next)
 }
 
+func appendUnique(values []string, value string) []string {
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func addSupabaseConnectOrigins(values []string, rawURL string) []string {
+	rawURL = strings.TrimSpace(strings.TrimSuffix(rawURL, "/"))
+	if rawURL == "" {
+		return values
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return values
+	}
+
+	httpsOrigin := "https://" + parsed.Host
+	values = appendUnique(values, httpsOrigin)
+
+	wsScheme := "wss"
+	if parsed.Scheme == "http" {
+		wsScheme = "ws"
+	}
+	values = appendUnique(values, wsScheme+"://"+parsed.Host)
+
+	return values
+}
+
+func buildConnectSrcValues() string {
+	values := []string{
+		"'self'",
+		"https://challenges.cloudflare.com",
+		"https://cdn.jsdelivr.net",
+		"https://www.google-analytics.com",
+		"https://www.googletagmanager.com",
+		"https://analytics.google.com",
+		"https://*.sentry.io",
+		"https://*.ingest.sentry.io",
+		"https://browser.sentry-cdn.com",
+		"https://cloudflareinsights.com",
+	}
+
+	values = addSupabaseConnectOrigins(values, os.Getenv("SUPABASE_AUTH_URL"))
+	values = addSupabaseConnectOrigins(values, os.Getenv("SUPABASE_FALLBACK_AUTH_URL"))
+	values = addSupabaseConnectOrigins(values, os.Getenv("SUPABASE_LEGACY_AUTH_URL"))
+
+	return strings.Join(values, " ")
+}
+
 // SecurityHeadersMiddleware adds security-related headers
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
+	connectSrcValues := buildConnectSrcValues()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 
 		// Content Security Policy
-		csp := `
+		csp := fmt.Sprintf(`
 			default-src 'self';
 			script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://browser.sentry-cdn.com https://static.cloudflareinsights.com;
 			style-src 'self' 'unsafe-inline';
-			connect-src 'self' https://challenges.cloudflare.com https://cdn.jsdelivr.net https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com https://auth.bluebandedbee.co wss://auth.bluebandedbee.co https://gpzjtbgtdjxnacdfujvx.supabase.co https://*.sentry.io https://*.ingest.sentry.io https://browser.sentry-cdn.com https://cloudflareinsights.com;
+			connect-src %s;
 			frame-src https://challenges.cloudflare.com;
 			img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com https://ssl.gstatic.com https://www.gravatar.com;
 			font-src 'self' data:;
 			object-src 'none';
 			base-uri 'self';
 			form-action 'self';
-		`
+		`, connectSrcValues)
 		w.Header().Set("Content-Security-Policy", strings.ReplaceAll(csp, "\n", " "))
 
 		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")

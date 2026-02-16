@@ -450,7 +450,7 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteHealthy(w, r, "blue-banded-bee", Version)
+	WriteHealthy(w, r, "adapt", Version)
 }
 
 // DatabaseHealthCheck handles database health check requests

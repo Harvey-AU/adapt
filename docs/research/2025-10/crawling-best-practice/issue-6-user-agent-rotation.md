@@ -9,7 +9,7 @@ minimal benefit **Status:** Current implementation is adequate
 
 ```go
 // internal/crawler/config.go
-UserAgent: "BlueBandedBee/1.0 (+https://bluebandedbee.co)"
+UserAgent: "AdaptBot/1.0 (+https://goodnative.co)"
 ```
 
 **Production configuration:**
@@ -17,7 +17,7 @@ UserAgent: "BlueBandedBee/1.0 (+https://bluebandedbee.co)"
 ```go
 // cmd/app/main.go - Line 175
 cr := crawler.New(crawlerConfig)  // No ID parameter passed
-// Results in: "BlueBandedBee/1.0 (+https://bluebandedbee.co)"
+// Results in: "AdaptBot/1.0 (+https://goodnative.co)"
 // (Worker-N suffix not used in production)
 ```
 
@@ -57,7 +57,7 @@ Some best practices suggest rotating user-agents to:
 **What we have:**
 
 ```
-BlueBandedBee/1.0 (+https://bluebandedbee.co)
+AdaptBot/1.0 (+https://goodnative.co)
 ```
 
 **This is perfect because:**
@@ -121,7 +121,7 @@ c.OnRequest(func(r *colly.Request) {
 
 ### ⚠️ **If You Get Blocked Based on UA** (Unlikely)
 
-If a site blocks `BlueBandedBee` specifically:
+If a site blocks `AdaptBot` specifically:
 
 1. **First**: Check if you're violating their robots.txt
 2. **Then**: Contact site operator (they may allowlist you)
@@ -130,11 +130,11 @@ If a site blocks `BlueBandedBee` specifically:
 ```go
 // Per-domain UA override
 if domain == "problem-site.com" {
-    ua = "BlueBandedBee/1.0 (compatible; Cache Warmer; +https://bluebandedbee.co)"
+    ua = "AdaptBot/1.0 (compatible; Cache Warmer; +https://goodnative.co)"
 }
 ```
 
-**Still identifies as BlueBandedBee, just different format.**
+**Still identifies as AdaptBot, just different format.**
 
 ## Cost-Benefit Analysis
 

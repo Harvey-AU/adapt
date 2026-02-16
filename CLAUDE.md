@@ -162,9 +162,9 @@ Last reviewed: 2026-02-02
 
 ## Project Overview
 
-Blue Banded Bee is a web cache warming service built in Go, focused on Webflow
-sites. It uses a PostgreSQL-backed worker pool architecture for efficient URL
-crawling and cache warming.
+Adapt is a web cache warming service built in Go, focused on Webflow sites. It
+uses a PostgreSQL-backed worker pool architecture for efficient URL crawling and
+cache warming.
 
 ## Refactoring Method (Extract + Test + Commit)
 

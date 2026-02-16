@@ -24,10 +24,10 @@ When deploying Cache Warmer:
 
 ## System Administrator Role
 
-Blue Banded Bee distinguishes between two types of administrative access:
+Adapt distinguishes between two types of administrative access:
 
-- **System Administrator** (`system_role: "system_admin"`) - Blue Banded Bee
-  operators with system-level access
+- **System Administrator** (`system_role: "system_admin"`) - Adapt operators
+  with system-level access
 - **Organisation Administrator** (`role: "admin"` or `"owner"`) - Client
   administrators within their organisation
 

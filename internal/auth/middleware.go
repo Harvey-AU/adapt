@@ -125,6 +125,15 @@ var (
 	jwksInitErr error
 )
 
+func getFallbackAuthURL() string {
+	for _, key := range []string{"SUPABASE_FALLBACK_AUTH_URL", "SUPABASE_LEGACY_AUTH_URL"} {
+		if value := strings.TrimSuffix(os.Getenv(key), "/"); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 // getJWKS returns a cached JWKS client bound to Supabase's signing certs.
 func getJWKS() (keyfunc.Keyfunc, error) {
 	jwksOnce.Do(func() {
@@ -139,9 +148,9 @@ func getJWKS() (keyfunc.Keyfunc, error) {
 		// Support both custom domain and original Supabase domain JWKS
 		jwksURLs := []string{jwksURL}
 
-		// If using custom domain, also include original Supabase JWKS as fallback
-		if strings.Contains(authURL, "auth.bluebandedbee.co") {
-			jwksURLs = append(jwksURLs, "https://gpzjtbgtdjxnacdfujvx.supabase.co/auth/v1/.well-known/jwks.json")
+		// Optionally include a fallback auth domain during domain migrations.
+		if fallbackAuthURL := getFallbackAuthURL(); fallbackAuthURL != "" && fallbackAuthURL != authURL {
+			jwksURLs = append(jwksURLs, fmt.Sprintf("%s/auth/v1/.well-known/jwks.json", fallbackAuthURL))
 		}
 
 		override := keyfunc.Override{
@@ -214,9 +223,9 @@ func validateSupabaseToken(ctx context.Context, tokenString string) (*UserClaims
 		fmt.Sprintf("%s/auth/v1", authURL),
 	}
 
-	// If using custom domain, also accept the original Supabase domain
-	if strings.Contains(authURL, "auth.bluebandedbee.co") {
-		validIssuers = append(validIssuers, "https://gpzjtbgtdjxnacdfujvx.supabase.co/auth/v1")
+	// Optionally accept legacy issuer during auth-domain migrations.
+	if fallbackAuthURL := getFallbackAuthURL(); fallbackAuthURL != "" && fallbackAuthURL != authURL {
+		validIssuers = append(validIssuers, fmt.Sprintf("%s/auth/v1", fallbackAuthURL))
 	}
 
 	// Manually validate issuer against allowed list

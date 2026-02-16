@@ -4,7 +4,7 @@ name: Auto Release
 # It uses a fine-grained Personal Access Token (PAT_TOKEN) to bypass branch protection.
 #
 # PAT Configuration:
-# - Name: "Blue Banded Bee Release Automation"
+# - Name: "Adapt Release Automation"
 # - Type: Fine-grained token
 # - Expiration: 365 days (expires ~1 year from creation)
 # - Repository: Harvey-AU/blue-banded-bee
