@@ -1364,8 +1364,24 @@
             invoicesList.appendChild(row);
 
             if (invoice.invoice_available && invoice.invoice_url) {
+              let safeURL = "";
+              try {
+                const parsed = new URL(
+                  invoice.invoice_url,
+                  window.location.origin
+                );
+                if (
+                  parsed.protocol !== "http:" &&
+                  parsed.protocol !== "https:"
+                ) {
+                  throw new Error("unsupported protocol");
+                }
+                safeURL = parsed.href;
+              } catch (_err) {
+                return;
+              }
               const link = document.createElement("a");
-              link.href = invoice.invoice_url;
+              link.href = safeURL;
               link.target = "_blank";
               link.rel = "noopener noreferrer";
               link.className = "settings-muted";
