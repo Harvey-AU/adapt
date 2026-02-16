@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/auth"
 )
 
 type billingCheckoutRequest struct {
