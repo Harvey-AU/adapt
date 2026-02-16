@@ -129,9 +129,9 @@ func determineApplicationName() string {
 		return trimAppName(override)
 	}
 
-	base := "bbb"
+	base := "adapt"
 	if env := sanitiseAppName(strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))); env != "" {
-		base = fmt.Sprintf("bbb-%s", env)
+		base = fmt.Sprintf("adapt-%s", env)
 	}
 
 	var parts []string
@@ -508,7 +508,7 @@ func InitFromEnv() (*DB, error) {
 		config.User = "postgres"
 	}
 	if config.Database == "" {
-		config.Database = "blue_banded_bee"
+		config.Database = "adapt"
 	}
 
 	// Create the database connection
