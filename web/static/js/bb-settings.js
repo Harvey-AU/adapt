@@ -2443,8 +2443,20 @@
               }
             );
             if (response?.portal_url) {
-              window.location.href = response.portal_url;
-              return;
+              try {
+                const parsed = new URL(
+                  response.portal_url,
+                  window.location.origin
+                );
+                if (!["http:", "https:"].includes(parsed.protocol)) {
+                  throw new Error("Unsupported billing portal URL protocol");
+                }
+                window.location.href = parsed.href;
+                return;
+              } catch (_err) {
+                showSettingsToast("error", "Invalid billing portal URL");
+                return;
+              }
             }
             showSettingsToast("error", "Billing portal URL unavailable");
           } catch (err) {
