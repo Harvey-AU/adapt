@@ -342,7 +342,7 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 				Str("organisation_id", orgID).
 				Str("plan_id", req.PlanID).
 				Msg("Failed to update organisation plan")
-			BadRequest(w, r, err.Error())
+			InternalError(w, r, fmt.Errorf("failed to update organisation plan: %w", err))
 			return
 		}
 		WriteSuccess(w, r, map[string]any{
