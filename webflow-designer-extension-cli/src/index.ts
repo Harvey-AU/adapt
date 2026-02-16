@@ -241,6 +241,7 @@ async function connectAccount() {
 
   await new Promise<void>((resolve) => {
     let settled = false;
+    let receivedAuthMessage = false;
 
     const cleanup = () => {
       if (settled) return;
@@ -267,6 +268,7 @@ async function connectAccount() {
       if (payload.source !== "bbb-extension-auth" || payload.state !== state) {
         return;
       }
+      receivedAuthMessage = true;
 
       if (payload.type === "success" && payload.accessToken) {
         apiTokenInput.value = payload.accessToken;
@@ -292,9 +294,16 @@ async function connectAccount() {
 
     const closedPoll = window.setInterval(() => {
       if (popup.closed) {
-        apiStatusText.textContent = "Sign-in window closed.";
-        if (!apiDetailsText.textContent) {
-          apiDetailsText.textContent = "If sign-in completed, try Check API.";
+        if (receivedAuthMessage) {
+          apiStatusText.textContent = "Sign-in window closed.";
+          if (!apiDetailsText.textContent) {
+            apiDetailsText.textContent = "If sign-in completed, try Check API.";
+          }
+        } else {
+          apiStatusText.textContent = "No auth response received from popup.";
+          apiDetailsText.textContent =
+            `Expected callback from ${authBaseOrigin}. ` +
+            "Confirm /extension-auth.html loads on that domain and complete sign-in again.";
         }
         cleanup();
       }
