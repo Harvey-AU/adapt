@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/util"
+	"github.com/Harvey-AU/adapt/internal/util"
 	"github.com/rs/zerolog/log"
 )
 

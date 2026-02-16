@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
-	"github.com/Harvey-AU/blue-banded-bee/internal/util"
+	"github.com/Harvey-AU/adapt/internal/db"
+	"github.com/Harvey-AU/adapt/internal/util"
 	"github.com/rs/zerolog/log"
 )
 

@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/crawler"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
-	"github.com/Harvey-AU/blue-banded-bee/internal/jobs"
+	"github.com/Harvey-AU/adapt/internal/crawler"
+	"github.com/Harvey-AU/adapt/internal/db"
+	"github.com/Harvey-AU/adapt/internal/jobs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"

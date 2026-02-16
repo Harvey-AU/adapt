@@ -1,4 +1,4 @@
-module github.com/Harvey-AU/blue-banded-bee
+module github.com/Harvey-AU/adapt
 
 go 1.26.0
 

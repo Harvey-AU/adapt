@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
+	"github.com/Harvey-AU/adapt/internal/db"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 )

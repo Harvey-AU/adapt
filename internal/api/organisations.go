@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
-	"github.com/Harvey-AU/blue-banded-bee/internal/db"
-	"github.com/Harvey-AU/blue-banded-bee/internal/loops"
-	"github.com/Harvey-AU/blue-banded-bee/internal/util"
+	"github.com/Harvey-AU/adapt/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/db"
+	"github.com/Harvey-AU/adapt/internal/loops"
+	"github.com/Harvey-AU/adapt/internal/util"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )

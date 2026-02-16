@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 
 	emailverifier "github.com/AfterShip/email-verifier"
-	"github.com/Harvey-AU/blue-banded-bee/internal/auth"
+	"github.com/Harvey-AU/adapt/internal/auth"
 	"github.com/getsentry/sentry-go"
 	"github.com/rs/zerolog/log"
 )

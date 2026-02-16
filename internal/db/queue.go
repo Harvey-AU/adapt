@@ -20,7 +20,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 
-	"github.com/Harvey-AU/blue-banded-bee/internal/observability"
+	"github.com/Harvey-AU/adapt/internal/observability"
 )
 
 // ConcurrencyOverrideFunc is a callback to get effective concurrency for a job
