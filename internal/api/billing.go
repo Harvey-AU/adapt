@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Harvey-AU/adapt/internal/auth"
+	"github.com/rs/zerolog/log"
 )
 
 type billingCheckoutRequest struct {
@@ -597,20 +598,30 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 		subscriptionID = lookup.SubscriptionID
 	}
 	if orgID == "" && subscriptionID != "" {
-		_ = h.DB.GetDB().QueryRowContext(ctx, `
+		if err := h.DB.GetDB().QueryRowContext(ctx, `
 			SELECT id
 			FROM organisations
 			WHERE paddle_subscription_id = $1
 			LIMIT 1
-		`, subscriptionID).Scan(&orgID)
+		`, subscriptionID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.Debug().
+				Err(err).
+				Str("subscription_id", subscriptionID).
+				Msg("Failed fallback lookup by paddle subscription ID")
+		}
 	}
 	if orgID == "" && customerID != "" {
-		_ = h.DB.GetDB().QueryRowContext(ctx, `
+		if err := h.DB.GetDB().QueryRowContext(ctx, `
 			SELECT id
 			FROM organisations
 			WHERE paddle_customer_id = $1
 			LIMIT 1
-		`, customerID).Scan(&orgID)
+		`, customerID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.Debug().
+				Err(err).
+				Str("customer_id", customerID).
+				Msg("Failed fallback lookup by paddle customer ID")
+		}
 	}
 	if orgID == "" {
 		return nil
