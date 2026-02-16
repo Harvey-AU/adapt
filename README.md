@@ -1,11 +1,11 @@
-[![Fly Deploy](https://github.com/Harvey-AU/adapt/actions/workflows/fly-deploy.yml/badge.svg)](https://github.com/Harvey-AU/adapt/actions/workflows/fly-deploy.yml)
-[![Tests](https://github.com/Harvey-AU/adapt/actions/workflows/test.yml/badge.svg)](https://github.com/Harvey-AU/adapt/actions/workflows/test.yml)
+[![Fly Deploy](https://github.com/Harvey-AU/blue-banded-bee/actions/workflows/fly-deploy.yml/badge.svg)](https://github.com/Harvey-AU/blue-banded-bee/actions/workflows/fly-deploy.yml)
+[![Tests](https://github.com/Harvey-AU/blue-banded-bee/actions/workflows/test.yml/badge.svg)](https://github.com/Harvey-AU/blue-banded-bee/actions/workflows/test.yml)
 [![codecov](https://codecov.io/github/harvey-au/adapt/graph/badge.svg?token=EC0JW5IU7X)](https://codecov.io/github/harvey-au/adapt)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Harvey-AU/adapt?style=flat)](https://goreportcard.com/report/github.com/Harvey-AU/adapt)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Harvey-AU/adapt.svg)](https://pkg.go.dev/github.com/Harvey-AU/adapt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Harvey-AU/blue-banded-bee?style=flat)](https://goreportcard.com/report/github.com/Harvey-AU/blue-banded-bee)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Harvey-AU/blue-banded-bee.svg)](https://pkg.go.dev/github.com/Harvey-AU/blue-banded-bee)
 [![Go Version](https://img.shields.io/badge/go-1.26-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Harvey-AU/adapt/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Harvey-AU/blue-banded-bee/graphs/commit-activity)
 
 # Adapt 🐝
 
@@ -50,7 +50,7 @@ Built by the Goodnative team in Castlemaine, Victoria, Australia.
 
 ```bash
 # Clone the repository
-git clone https://github.com/Harvey-AU/adapt.git
+git clone https://github.com/Harvey-AU/blue-banded-bee.git
 cd adapt
 
 # Enable pre-commit hooks for automatic formatting
@@ -111,7 +111,7 @@ See [Roadmap.md](./Roadmap.md) for detailed progress tracking.
 
 ## Support
 
-- [Report Issues](https://github.com/Harvey-AU/adapt/issues)
+- [Report Issues](https://github.com/Harvey-AU/blue-banded-bee/issues)
 - [Security Policy](SECURITY.md)
 - Email: <hello@teamharvey.co>
 
