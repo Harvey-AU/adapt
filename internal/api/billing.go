@@ -137,6 +137,8 @@ type paddleTransactionData struct {
 
 // BillingHandler handles GET /v1/billing.
 func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
+	logger := loggerWithRequest(r)
+
 	if r.Method != http.MethodGet {
 		MethodNotAllowed(w, r)
 		return
@@ -179,6 +181,7 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 		&paddleSubID,
 		&currentPeriodEnds,
 	); err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to load billing overview")
 		InternalError(w, r, fmt.Errorf("failed to load billing overview: %w", err))
 		return
 	}
@@ -205,6 +208,8 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 
 // BillingInvoicesHandler handles GET /v1/billing/invoices.
 func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request) {
+	logger := loggerWithRequest(r)
+
 	if r.Method != http.MethodGet {
 		MethodNotAllowed(w, r)
 		return
@@ -223,6 +228,7 @@ func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request)
 		LIMIT 50
 	`, orgID)
 	if err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to query billing invoices")
 		InternalError(w, r, fmt.Errorf("failed to list billing invoices: %w", err))
 		return
 	}
@@ -239,6 +245,7 @@ func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request)
 			url      sql.NullString
 		)
 		if err := rows.Scan(&number, &status, &currency, &total, &billedAt, &url); err != nil {
+			logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to scan billing invoice row")
 			InternalError(w, r, fmt.Errorf("failed to scan invoice row: %w", err))
 			return
 		}
@@ -259,6 +266,7 @@ func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := rows.Err(); err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed iterating billing invoices")
 		InternalError(w, r, fmt.Errorf("failed to iterate invoice rows: %w", err))
 		return
 	}
@@ -268,6 +276,8 @@ func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request)
 
 // BillingCheckoutHandler handles POST /v1/billing/checkout.
 func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request) {
+	logger := loggerWithRequest(r)
+
 	if r.Method != http.MethodPost {
 		MethodNotAllowed(w, r)
 		return
@@ -314,6 +324,11 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 			BadRequest(w, r, "Plan not found")
 			return
 		}
+		logger.Error().
+			Err(err).
+			Str("organisation_id", orgID).
+			Str("plan_id", req.PlanID).
+			Msg("Failed to load checkout plan")
 		InternalError(w, r, fmt.Errorf("failed to load plan: %w", err))
 		return
 	}
@@ -321,6 +336,11 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 	// Free tier changes are applied immediately without checkout.
 	if monthlyPriceCents == 0 {
 		if err := h.DB.SetOrganisationPlan(r.Context(), orgID, req.PlanID); err != nil {
+			logger.Error().
+				Err(err).
+				Str("organisation_id", orgID).
+				Str("plan_id", req.PlanID).
+				Msg("Failed to update organisation plan")
 			BadRequest(w, r, err.Error())
 			return
 		}
@@ -356,11 +376,21 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 
 	data, err := h.callPaddleAPI(r.Context(), http.MethodPost, "/transactions", payload)
 	if err != nil {
+		logger.Error().
+			Err(err).
+			Str("organisation_id", orgID).
+			Str("plan_id", req.PlanID).
+			Msg("Failed to create Paddle checkout transaction")
 		InternalError(w, r, fmt.Errorf("failed to create checkout transaction: %w", err))
 		return
 	}
 	var checkout paddleCheckoutResponse
 	if err := json.Unmarshal(data, &checkout); err != nil {
+		logger.Error().
+			Err(err).
+			Str("organisation_id", orgID).
+			Str("plan_id", req.PlanID).
+			Msg("Failed to decode Paddle checkout response")
 		InternalError(w, r, fmt.Errorf("failed to decode checkout response: %w", err))
 		return
 	}
@@ -383,6 +413,8 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 
 // BillingPortalHandler handles POST /v1/billing/portal.
 func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
+	logger := loggerWithRequest(r)
+
 	if r.Method != http.MethodPost {
 		MethodNotAllowed(w, r)
 		return
@@ -408,6 +440,7 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 		FROM organisations
 		WHERE id = $1
 	`, orgID).Scan(&customerID); err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to load billing customer")
 		InternalError(w, r, fmt.Errorf("failed to load billing customer: %w", err))
 		return
 	}
@@ -426,11 +459,13 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 		payload,
 	)
 	if err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to create Paddle billing portal session")
 		InternalError(w, r, fmt.Errorf("failed to create billing portal session: %w", err))
 		return
 	}
 	var portal paddlePortalResponse
 	if err := json.Unmarshal(data, &portal); err != nil {
+		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to decode Paddle billing portal response")
 		InternalError(w, r, fmt.Errorf("failed to decode billing portal response: %w", err))
 		return
 	}
