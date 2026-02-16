@@ -76,6 +76,8 @@ One command starts everything:
 - 🚀 Completely isolated from production
 - 🔇 Clean logging by default, verbose mode available
 
+If you run without `DATABASE_URL`, ensure `POSTGRES_DB=adapt` for local defaults.
+
 ## Status
 
 **~65% Complete** - Stage 4 of 7 (Core Authentication & MVP Interface)
