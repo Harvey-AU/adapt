@@ -123,6 +123,7 @@ type WebflowSiteSetting = {
   webflow_site_id: string;
   site_name: string;
   primary_domain: string;
+  connection_id?: string;
   auto_publish_enabled: boolean;
   schedule_interval_hours?: number;
   scheduler_id?: string;
@@ -885,18 +886,35 @@ async function findConnectedWebflowSite(): Promise<WebflowSiteSetting | null> {
   let matched: WebflowSiteSetting | null = null;
 
   for (const connection of connections) {
-    const sites = await apiRequest<WebflowSitesResponse>(
-      `/v1/integrations/webflow/${connection.id}/sites?page=1&limit=50`,
-      { method: "GET" }
-    );
+    let page = 1;
 
-    const candidate = sites.sites?.find((site) => {
-      const domain = normalizeDomain(site.primary_domain);
-      return candidates.includes(domain);
-    });
+    while (true) {
+      const sites = await apiRequest<WebflowSitesResponse>(
+        `/v1/integrations/webflow/${connection.id}/sites?page=${page}&limit=50`,
+        { method: "GET" }
+      );
 
-    if (candidate) {
-      matched = candidate;
+      const candidate = sites.sites?.find((site) => {
+        const domain = normalizeDomain(site.primary_domain);
+        return candidates.includes(domain);
+      });
+
+      if (candidate) {
+        matched = {
+          ...candidate,
+          connection_id: connection.id,
+        };
+        break;
+      }
+
+      if (!sites.pagination?.has_next) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    if (matched) {
       break;
     }
   }
@@ -919,9 +937,12 @@ async function setWebflowAutoPublish(enabled: boolean): Promise<void> {
     setStatus("Connect Webflow and select this site, then try again.", "");
     return;
   }
+  if (!siteSetting.connection_id) {
+    throw new Error("Connected Webflow site missing connection id.");
+  }
 
   const payload = {
-    connection_id: siteSetting.webflow_site_id,
+    connection_id: siteSetting.connection_id,
     enabled,
   };
 
