@@ -132,12 +132,13 @@ jobs:
             SUPABASE_AUTH_URL="https://adapt.auth.goodnative.co"
           fi
           SUPABASE_FALLBACK_AUTH_URL="${{ secrets.SUPABASE_FALLBACK_AUTH_URL }}"
-          if [ -z "$SUPABASE_FALLBACK_AUTH_URL" ]; then
-            SUPABASE_FALLBACK_AUTH_URL="$SUPABASE_AUTH_URL"
-          fi
           SUPABASE_LEGACY_AUTH_URL="${{ secrets.SUPABASE_LEGACY_AUTH_URL }}"
-          if [ -z "$SUPABASE_LEGACY_AUTH_URL" ]; then
-            SUPABASE_LEGACY_AUTH_URL="$SUPABASE_AUTH_URL"
+          AUTH_URL_FLAGS=(SUPABASE_AUTH_URL="$SUPABASE_AUTH_URL")
+          if [ -n "$SUPABASE_FALLBACK_AUTH_URL" ]; then
+            AUTH_URL_FLAGS+=(SUPABASE_FALLBACK_AUTH_URL="$SUPABASE_FALLBACK_AUTH_URL")
+          fi
+          if [ -n "$SUPABASE_LEGACY_AUTH_URL" ]; then
+            AUTH_URL_FLAGS+=(SUPABASE_LEGACY_AUTH_URL="$SUPABASE_LEGACY_AUTH_URL")
           fi
 
           # Check if app exists, create if not
@@ -155,9 +156,7 @@ jobs:
             flyctl secrets set \
               DATABASE_URL="$DB_URL" \
               DATABASE_DIRECT_URL="$DIRECT_URL" \
-              SUPABASE_AUTH_URL="$SUPABASE_AUTH_URL" \
-              SUPABASE_FALLBACK_AUTH_URL="$SUPABASE_FALLBACK_AUTH_URL" \
-              SUPABASE_LEGACY_AUTH_URL="$SUPABASE_LEGACY_AUTH_URL" \
+              "${AUTH_URL_FLAGS[@]}" \
               SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
@@ -175,9 +174,7 @@ jobs:
           else
             flyctl secrets set \
               DATABASE_URL="$DB_URL" \
-              SUPABASE_AUTH_URL="$SUPABASE_AUTH_URL" \
-              SUPABASE_FALLBACK_AUTH_URL="$SUPABASE_FALLBACK_AUTH_URL" \
-              SUPABASE_LEGACY_AUTH_URL="$SUPABASE_LEGACY_AUTH_URL" \
+              "${AUTH_URL_FLAGS[@]}" \
               SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
