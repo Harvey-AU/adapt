@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -164,12 +165,6 @@ func (h *Handler) HandleWebflowOAuthCallback(w http.ResponseWriter, r *http.Requ
 			workspaceID = authInfo.WorkspaceIDs[0] // Use first workspace
 		}
 	}
-	if workspaceID == "" {
-		logger.Warn().Msg("Webflow OAuth response missing workspace ID")
-		h.redirectToSettingsWithError(w, r, "Webflow", "Webflow workspace ID not found. Please ensure a workspace is selected.", "auto-crawl", "webflow")
-		return
-	}
-
 	now := time.Now().UTC()
 	conn := &db.WebflowConnection{
 		ID:                 uuid.New().String(),
@@ -199,17 +194,21 @@ func (h *Handler) HandleWebflowOAuthCallback(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Link workspace to organisation for webhook resolution
-	mapping := &db.PlatformOrgMapping{
-		Platform:       "webflow",
-		PlatformID:     workspaceID,
-		OrganisationID: state.OrgID,
-		CreatedBy:      &state.UserID,
-	}
-	if err := h.DB.UpsertPlatformOrgMapping(r.Context(), mapping); err != nil {
-		logger.Error().Err(err).Msg("Failed to store Webflow workspace mapping")
-		h.redirectToSettingsWithError(w, r, "Webflow", "Failed to save Webflow workspace mapping", "auto-crawl", "webflow")
-		return
+	// Link workspace to organisation for webhook resolution when available.
+	if workspaceID != "" {
+		mapping := &db.PlatformOrgMapping{
+			Platform:       "webflow",
+			PlatformID:     workspaceID,
+			OrganisationID: state.OrgID,
+			CreatedBy:      &state.UserID,
+		}
+		if err := h.DB.UpsertPlatformOrgMapping(r.Context(), mapping); err != nil {
+			logger.Error().Err(err).Msg("Failed to store Webflow workspace mapping")
+			h.redirectToSettingsWithError(w, r, "Webflow", "Failed to save Webflow workspace mapping", "auto-crawl", "webflow")
+			return
+		}
+	} else {
+		logger.Warn().Str("organisation_id", state.OrgID).Msg("Webflow connection saved without workspace ID; webhook callbacks may fail until workspace is available")
 	}
 
 	// Note: Webhooks are now registered per-site via the site settings UI
@@ -290,10 +289,22 @@ func (h *Handler) fetchWebflowAuthInfo(ctx context.Context, token string) (*Webf
 			AuthorizedTo struct {
 				UserID       string   `json:"userId"`
 				WorkspaceIDs []string `json:"workspaceIds"`
+				WorkspaceID  string   `json:"workspaceId"`
 			} `json:"authorizedTo"`
 		} `json:"authorization"`
+
+		AuthorizedTo struct {
+			UserID       string   `json:"userId"`
+			WorkspaceIDs []string `json:"workspaceIds"`
+			WorkspaceID  string   `json:"workspaceId"`
+		} `json:"authorized_to"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&introspectResp); err != nil {
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read introspect response body: %w", err)
+	}
+	if err := json.Unmarshal(body, &introspectResp); err != nil {
 		return nil, fmt.Errorf("failed to decode introspect response: %w", err)
 	}
 
@@ -301,6 +312,36 @@ func (h *Handler) fetchWebflowAuthInfo(ctx context.Context, token string) (*Webf
 		UserID:       introspectResp.Authorization.AuthorizedTo.UserID,
 		WorkspaceIDs: introspectResp.Authorization.AuthorizedTo.WorkspaceIDs,
 	}
+
+	// Fallback for variations in token response structure.
+	if authInfo.UserID == "" {
+		authInfo.UserID = introspectResp.AuthorizedTo.UserID
+	}
+	if len(authInfo.WorkspaceIDs) == 0 {
+		authInfo.WorkspaceIDs = append([]string(nil), introspectResp.AuthorizedTo.WorkspaceIDs...)
+	}
+	if introspectResp.Authorization.AuthorizedTo.WorkspaceID != "" {
+		authInfo.WorkspaceIDs = append(authInfo.WorkspaceIDs, introspectResp.Authorization.AuthorizedTo.WorkspaceID)
+	}
+	if introspectResp.AuthorizedTo.WorkspaceID != "" {
+		authInfo.WorkspaceIDs = append(authInfo.WorkspaceIDs, introspectResp.AuthorizedTo.WorkspaceID)
+	}
+
+	// Deduplicate workspace IDs and trim whitespace.
+	workspaceIDs := make([]string, 0, len(authInfo.WorkspaceIDs))
+	seenWorkspaceIDs := map[string]struct{}{}
+	for _, workspaceID := range authInfo.WorkspaceIDs {
+		workspaceID = strings.TrimSpace(workspaceID)
+		if workspaceID == "" {
+			continue
+		}
+		if _, seen := seenWorkspaceIDs[workspaceID]; seen {
+			continue
+		}
+		seenWorkspaceIDs[workspaceID] = struct{}{}
+		workspaceIDs = append(workspaceIDs, workspaceID)
+	}
+	authInfo.WorkspaceIDs = workspaceIDs
 
 	// Fetch user info from authorized_by endpoint
 	userInfo, err := h.fetchWebflowUserInfo(ctx, client, token)
