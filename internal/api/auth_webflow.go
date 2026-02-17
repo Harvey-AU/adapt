@@ -27,6 +27,10 @@ func getWebflowClientSecret() string {
 }
 
 func getWebflowRedirectURI() string {
+	if override := strings.TrimSpace(os.Getenv("WEBFLOW_REDIRECT_URI")); override != "" {
+		return override
+	}
+
 	return getAppURL() + "/v1/integrations/webflow/callback"
 }
 
