@@ -6,6 +6,15 @@ const DEFAULT_BBB_APP_ORIGIN = "https://adapt.app.goodnative.co";
 const AUTH_POPUP_NAME = "bbbExtensionAuth";
 const SCHEDULE_PLACEHOLDER = "";
 const SCHEDULE_OPTIONS = ["off", "6", "12", "24", "48"] as const;
+const JOB_POLLING_INTERVAL_MS = 6000;
+const ACTIVE_JOB_STATUSES = new Set<string>([
+  "pending",
+  "queued",
+  "initializing",
+  "running",
+  "in_progress",
+  "processing",
+]);
 
 declare const webflow: {
   getSiteInfo: () => Promise<{
@@ -175,8 +184,12 @@ const ui = {
   changePlanButton: document.getElementById("changePlanButton"),
   manageTeamButton: document.getElementById("manageTeamButton"),
 
-  scheduleSelect: document.getElementById("scheduleSelect") as HTMLSelectElement | null,
-  webflowPublishToggle: document.getElementById("runPublishToggle") as HTMLInputElement | null,
+  scheduleSelect: document.getElementById(
+    "scheduleSelect"
+  ) as HTMLSelectElement | null,
+  webflowPublishToggle: document.getElementById(
+    "runPublishToggle"
+  ) as HTMLInputElement | null,
 };
 
 type ExtensionState = {
@@ -209,6 +222,9 @@ const state: ExtensionState = {
   webflowConnected: false,
   webflowAutoPublishEnabled: false,
 };
+
+let jobStatusPoller: number | null = null;
+let jobPollInFlight = false;
 
 function getStoredBaseUrl(): string {
   return localStorage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_BBB_APP_ORIGIN;
@@ -270,7 +286,11 @@ function setText(node: Element | null, value: string): void {
 }
 
 function normalizeDomain(input: string): string {
-  const trimmed = input.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+  const trimmed = input
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "");
   if (!trimmed) {
     return "";
   }
@@ -311,6 +331,84 @@ function statusLabelForJob(status: string): string {
   }
 
   return "ERROR";
+}
+
+function normalizeJobStatus(status: string): string {
+  return status.trim().toLowerCase();
+}
+
+function isActiveJobStatus(status: string): boolean {
+  return ACTIVE_JOB_STATUSES.has(normalizeJobStatus(status));
+}
+
+function pickLatestJobForCurrentSite(
+  jobs: JobItem[] | undefined
+): JobItem | null {
+  const candidates = getSiteDomainCandidates();
+  return (
+    jobs?.find((job) => {
+      const jobDomain = normalizeDomain(job.domains?.name || "");
+      return !candidates.length || candidates.includes(jobDomain);
+    }) || null
+  );
+}
+
+function stopJobStatusPolling(): void {
+  if (jobStatusPoller !== null) {
+    window.clearInterval(jobStatusPoller);
+    jobStatusPoller = null;
+  }
+}
+
+function startJobStatusPolling(): void {
+  stopJobStatusPolling();
+
+  if (!state.token || !state.currentJob || !state.siteDomain) {
+    return;
+  }
+
+  if (!isActiveJobStatus(state.currentJob.status)) {
+    return;
+  }
+
+  jobStatusPoller = window.setInterval(() => {
+    void refreshCurrentJob();
+  }, JOB_POLLING_INTERVAL_MS);
+}
+
+async function refreshCurrentJob(): Promise<void> {
+  if (jobPollInFlight || !state.token || !state.siteDomain) {
+    stopJobStatusPolling();
+    return;
+  }
+
+  try {
+    jobPollInFlight = true;
+    const response = await apiRequest<JobListResponse>("/v1/jobs?limit=50", {
+      method: "GET",
+    });
+    const latest = pickLatestJobForCurrentSite(response.jobs);
+    state.currentJob = latest;
+    renderJobState(latest);
+
+    if (!isActiveJobStatus(state.currentJob?.status || "")) {
+      stopJobStatusPolling();
+    }
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      ((error as ApiError).status === 401 || (error as ApiError).status === 403)
+    ) {
+      stopJobStatusPolling();
+      handleAuthError(error);
+      return;
+    }
+    console.error("Failed to refresh current job", error);
+  } finally {
+    jobPollInFlight = false;
+  }
 }
 
 function formatDate(value?: string): string {
@@ -385,8 +483,10 @@ async function apiRequest<T>(
 }
 
 function getPopupPosition() {
-  const left = window.screenX + Math.max(0, (window.outerWidth - AUTH_POPUP_WIDTH) / 2);
-  const top = window.screenY + Math.max(0, (window.outerHeight - AUTH_POPUP_HEIGHT) / 2);
+  const left =
+    window.screenX + Math.max(0, (window.outerWidth - AUTH_POPUP_WIDTH) / 2);
+  const top =
+    window.screenY + Math.max(0, (window.outerHeight - AUTH_POPUP_HEIGHT) / 2);
   return { left: Math.floor(left), top: Math.floor(top) };
 }
 
@@ -405,13 +505,19 @@ async function connectAccount(): Promise<string | null> {
   const stateToken = createAuthStateValue();
   const authUrl = `${state.apiBaseUrl}/extension-auth.html?origin=${encodeURIComponent(window.location.origin)}&state=${encodeURIComponent(stateToken)}`;
   const popupPosition = getPopupPosition();
-  const popupFeatures =
-    `width=${AUTH_POPUP_WIDTH},height=${AUTH_POPUP_HEIGHT},left=${popupPosition.left},top=${popupPosition.top},resizable=yes,scrollbars=yes`;
+  const popupFeatures = `width=${AUTH_POPUP_WIDTH},height=${AUTH_POPUP_HEIGHT},left=${popupPosition.left},top=${popupPosition.top},resizable=yes,scrollbars=yes`;
 
-  const popup = window.open(authUrl, AUTH_POPUP_NAME, popupFeatures) as Window | null;
+  const popup = window.open(
+    authUrl,
+    AUTH_POPUP_NAME,
+    popupFeatures
+  ) as Window | null;
 
   if (!popup) {
-    setStatus("Popup blocked. Allow popups for Webflow Designer and try again.", "error");
+    setStatus(
+      "Popup blocked. Allow popups for Webflow Designer and try again.",
+      "error"
+    );
     return null;
   }
 
@@ -426,7 +532,10 @@ async function connectAccount(): Promise<string | null> {
         }
 
         const payload = event.data as AuthMessage;
-        if (payload?.source !== "bbb-extension-auth" || payload.state !== stateToken) {
+        if (
+          payload?.source !== "bbb-extension-auth" ||
+          payload.state !== stateToken
+        ) {
           return;
         }
 
@@ -511,6 +620,7 @@ function renderAuthState(isAuthed: boolean): void {
 
 function renderJobState(job: JobItem | null): void {
   if (!job) {
+    stopJobStatusPolling();
     hide(asNode(ui.jobSection));
     show(asNode(ui.noJobState));
     setText(ui.jobStatusIcon, "");
@@ -534,10 +644,7 @@ function renderJobState(job: JobItem | null): void {
     ui.jobStatusText,
     `${status} • ${job.total_tasks} pages • ${Math.round(job.progress)}% complete (${job.completed_tasks} done, ${job.failed_tasks} issues)`
   );
-  setText(
-    ui.jobSummaryText,
-    `${domain} • Latest run ${dateText}`
-  );
+  setText(ui.jobSummaryText, `${domain} • Latest run ${dateText}`);
 }
 
 function renderUsage(usage: UsageStats | null): void {
@@ -552,7 +659,10 @@ function renderUsage(usage: UsageStats | null): void {
     0,
     Math.min(100, Math.round(100 - usage.usage_percentage))
   );
-  setText(ui.planNameText, `Plan: ${plan || "Plan"} (${remainingPercent}% remaining) ${used} used`);
+  setText(
+    ui.planNameText,
+    `Plan: ${plan || "Plan"} (${remainingPercent}% remaining) ${used} used`
+  );
 }
 
 function renderOrganisations() {
@@ -589,7 +699,8 @@ function renderWebflowStatus(isConnected: boolean) {
     return;
   }
 
-  ui.webflowPublishToggle.checked = isConnected && state.webflowAutoPublishEnabled;
+  ui.webflowPublishToggle.checked =
+    isConnected && state.webflowAutoPublishEnabled;
 }
 
 function renderScheduleState(): void {
@@ -610,7 +721,10 @@ function renderScheduleState(): void {
 }
 
 function setLoading(element: Element | null, disabled: boolean): void {
-  if (element instanceof HTMLButtonElement || element instanceof HTMLSelectElement) {
+  if (
+    element instanceof HTMLButtonElement ||
+    element instanceof HTMLSelectElement
+  ) {
     element.disabled = disabled;
   }
 }
@@ -646,7 +760,9 @@ async function loadCurrentSiteInfo() {
     const stageFiltered = siteInfo.domains.filter(
       (domain) => domain.stage === "staging" || domain.stage === "production"
     );
-    state.siteDomainCandidates = stageFiltered.map((candidate) => candidate.url);
+    state.siteDomainCandidates = stageFiltered.map(
+      (candidate) => candidate.url
+    );
 
     const preferredDomain =
       stageFiltered.find((domain) => domain.default)?.url ||
@@ -656,8 +772,8 @@ async function loadCurrentSiteInfo() {
     state.siteDomain = preferredDomain
       ? normalizeDomain(preferredDomain)
       : stageFiltered[0]
-      ? normalizeDomain(stageFiltered[0].url)
-      : normalizeDomain(siteInfo.shortName);
+        ? normalizeDomain(stageFiltered[0].url)
+        : normalizeDomain(siteInfo.shortName);
     state.siteName = siteInfo.siteName;
     return state.siteDomain;
   } catch (error) {
@@ -670,28 +786,23 @@ async function loadLatestJob(): Promise<void> {
   if (!state.siteDomain || !state.token) {
     state.currentJob = null;
     renderJobState(null);
+    stopJobStatusPolling();
     return;
   }
 
   try {
-    const response = await apiRequest<JobListResponse>(
-      "/v1/jobs?limit=50",
-      {
-        method: "GET",
-      }
-    );
+    const response = await apiRequest<JobListResponse>("/v1/jobs?limit=50", {
+      method: "GET",
+    });
 
-    const candidates = getSiteDomainCandidates();
-    const latest = response.jobs?.find((job) => {
-      const jobDomain = normalizeDomain(job.domains?.name || "");
-      return !candidates.length || candidates.includes(jobDomain);
-    }) || null;
-
+    const latest = pickLatestJobForCurrentSite(response.jobs);
     state.currentJob = latest;
     renderJobState(latest);
+    startJobStatusPolling();
   } catch (error) {
     state.currentJob = null;
     renderJobState(null);
+    stopJobStatusPolling();
     console.error(error);
   }
 }
@@ -710,7 +821,8 @@ async function loadUsageAndOrgs(): Promise<void> {
   ]);
 
   state.organisations = orgData.organisations || [];
-  state.activeOrganisationId = orgData.active_organisation_id || state.activeOrganisationId;
+  state.activeOrganisationId =
+    orgData.active_organisation_id || state.activeOrganisationId;
   state.usage = usageData.usage || null;
 }
 
@@ -722,7 +834,9 @@ async function loadCurrentSchedule(): Promise<void> {
   }
 
   const siteDomain = normalizeDomain(state.siteDomain);
-  const schedulers = await apiRequest<Scheduler[]>("/v1/schedulers", { method: "GET" });
+  const schedulers = await apiRequest<Scheduler[]>("/v1/schedulers", {
+    method: "GET",
+  });
   const matching = schedulers.find(
     (scheduler) => normalizeDomain(scheduler.domain) === siteDomain
   );
@@ -877,7 +991,10 @@ async function runScanForCurrentSite(): Promise<void> {
   }
 
   if (!state.siteDomain) {
-    setStatus("Could not read current site domain.", "Open a site in the Designer and try again.");
+    setStatus(
+      "Could not read current site domain.",
+      "Open a site in the Designer and try again."
+    );
     return;
   }
 
@@ -895,6 +1012,7 @@ async function runScanForCurrentSite(): Promise<void> {
 
   state.currentJob = created;
   renderJobState(created);
+  startJobStatusPolling();
   setStatus("Scan started.", "Use Run again to requeue a fresh run.");
   await refreshDashboard();
 }
@@ -905,9 +1023,12 @@ async function exportCurrentJob(): Promise<void> {
     return;
   }
 
-  const response = await fetch(`${state.apiBaseUrl}/v1/jobs/${state.currentJob.id}/export`, {
-    headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
-  });
+  const response = await fetch(
+    `${state.apiBaseUrl}/v1/jobs/${state.currentJob.id}/export`,
+    {
+      headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`Export failed (${response.status})`);
@@ -965,6 +1086,7 @@ async function refreshDashboard(): Promise<void> {
       state.usage = null;
       state.organisations = [];
       state.currentScheduler = null;
+      stopJobStatusPolling();
       renderJobState(null);
       renderUsage(null);
       renderOrganisations();
@@ -974,9 +1096,15 @@ async function refreshDashboard(): Promise<void> {
     }
 
     try {
-      await Promise.all([loadUsageAndOrgs(), loadLatestJob(), loadCurrentSchedule(), findConnectedWebflowSite()]);
+      await Promise.all([
+        loadUsageAndOrgs(),
+        loadLatestJob(),
+        loadCurrentSchedule(),
+        findConnectedWebflowSite(),
+      ]);
       renderUsage(state.usage);
       renderOrganisations();
+      startJobStatusPolling();
     } catch (error) {
       await handleAuthError(error);
     }
@@ -993,16 +1121,13 @@ async function switchOrganisation(): Promise<void> {
 
   setDisabledAll(true);
   try {
-    await apiRequest<{ organisation: unknown }>(
-      "/v1/organisations/switch",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organisation_id: select.value,
-        }),
-      }
-    );
+    await apiRequest<{ organisation: unknown }>("/v1/organisations/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisation_id: select.value,
+      }),
+    });
     state.activeOrganisationId = select.value;
     await refreshDashboard();
   } finally {
@@ -1030,7 +1155,11 @@ async function connectWebflow(): Promise<void> {
     }
   );
 
-  const popup = window.open(response.auth_url, "bbb-webflow-connect", `width=520,height=760,left=60,top=60`);
+  const popup = window.open(
+    response.auth_url,
+    "bbb-webflow-connect",
+    `width=520,height=760,left=60,top=60`
+  );
   if (!popup) {
     setStatus("Popup blocked. Allow popups and try again.", "");
     return;
@@ -1087,7 +1216,10 @@ function initEventHandlers(): void {
     try {
       await exportCurrentJob();
     } catch (error) {
-      setStatus("Export failed", error instanceof Error ? error.message : "Unknown error");
+      setStatus(
+        "Export failed",
+        error instanceof Error ? error.message : "Unknown error"
+      );
     }
   });
 
@@ -1143,6 +1275,7 @@ function initEventHandlers(): void {
 }
 
 async function initialise(): Promise<void> {
+  window.addEventListener("beforeunload", stopJobStatusPolling);
   try {
     localStorage.setItem(API_BASE_STORAGE_KEY, state.apiBaseUrl);
   } catch (_error) {
