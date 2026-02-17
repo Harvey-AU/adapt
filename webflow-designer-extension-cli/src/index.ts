@@ -7,6 +7,12 @@ const AUTH_POPUP_NAME = "bbbExtensionAuth";
 const SCHEDULE_PLACEHOLDER = "";
 const SCHEDULE_OPTIONS = ["off", "6", "12", "24", "48"] as const;
 const JOB_POLLING_INTERVAL_MS = 6000;
+const APP_ROUTES = {
+  dashboard: "/dashboard",
+  viewJob: "/jobs",
+  changePlan: "/settings/plans",
+  manageTeam: "/settings/team",
+} as const;
 const ACTIVE_JOB_STATUSES = new Set<string>([
   "pending",
   "queued",
@@ -720,6 +726,17 @@ function renderScheduleState(): void {
   }
 }
 
+function buildAppUrl(path: string): string {
+  try {
+    const trimmedBase = state.apiBaseUrl.replace(/\/+$/, "");
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return new URL(normalizedPath, `${trimmedBase}/`).toString();
+  } catch (error) {
+    console.error("Failed to build app URL", error);
+    return `${state.apiBaseUrl.replace(/\/+$/, "")}/${path}`;
+  }
+}
+
 function setLoading(element: Element | null, disabled: boolean): void {
   if (
     element instanceof HTMLButtonElement ||
@@ -1136,7 +1153,11 @@ async function switchOrganisation(): Promise<void> {
 }
 
 function openSettingsPage(path: string): void {
-  window.open(`${state.apiBaseUrl}/${path}`, "_blank", "noopener,noreferrer");
+  const targetUrl = buildAppUrl(path);
+  const popup = window.open(targetUrl, "_blank", "noopener,noreferrer");
+  if (!popup) {
+    setStatus("Popup blocked. Allow popups and try again.", "");
+  }
 }
 
 async function connectWebflow(): Promise<void> {
@@ -1224,15 +1245,18 @@ function initEventHandlers(): void {
   });
 
   ui.viewDetailsButton?.addEventListener("click", () => {
-    openSettingsPage("dashboard");
+    const detailPath = state.currentJob?.id
+      ? `${APP_ROUTES.viewJob}/${encodeURIComponent(state.currentJob.id)}`
+      : APP_ROUTES.dashboard;
+    openSettingsPage(detailPath);
   });
 
   ui.changePlanButton?.addEventListener("click", () => {
-    openSettingsPage("/dashboard");
+    openSettingsPage(APP_ROUTES.changePlan);
   });
 
   ui.manageTeamButton?.addEventListener("click", () => {
-    openSettingsPage("/dashboard");
+    openSettingsPage(APP_ROUTES.manageTeam);
   });
 
   ui.orgSelect?.addEventListener("change", () => {
