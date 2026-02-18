@@ -4,50 +4,117 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link href="./styles.css" rel="stylesheet" />
+    <title>Adapt for Webflow</title>
   </head>
 
   <body>
-    <main class="panel">
-      <p class="eyebrow">Blue Banded Bee</p>
-      <h1>Designer Extension Smoke Test</h1>
-      <p class="status" id="statusText">UI loaded in Webflow Designer.</p>
-      <div class="actions">
-        <button id="pingButton" type="button">Test Interaction</button>
-      </div>
-      <p class="counter" id="counterText">Clicks: 0</p>
-      <p class="hint">
-        If you can see this and click the button, step 1 is complete.
-      </p>
+    <main class="app-shell">
+      <section class="panel" id="panelRoot">
+        <header class="header">
+          <div class="top-brand">
+            <span class="brand-text">Adapt</span>
+          </div>
+          <span id="authStatePill" class="pill"></span>
+        </header>
 
-      <hr />
+        <div class="status-block">
+          <p id="statusText" class="status"></p>
+          <p id="detailText" class="detail"></p>
+        </div>
 
-      <h2>Backend Read Test</h2>
-      <label class="field-label" for="apiBaseUrl">API Base URL</label>
-      <input
-        id="apiBaseUrl"
-        type="url"
-        placeholder="https://adapt.app.goodnative.co"
-      />
+        <section class="section" id="unauthState">
+          <p class="section-title">
+            Run your Webflow site checks without leaving Designer.
+          </p>
+          <ul class="benefits-list">
+            <li>Broken links and slow pages</li>
+            <li>Exports and status from one screen</li>
+            <li>Organisation-aware usage and plan visibility</li>
+          </ul>
 
-      <label class="field-label" for="apiToken">Bearer Token (optional)</label>
-      <input
-        id="apiToken"
-        type="password"
-        placeholder="Paste JWT if /v1 endpoints require auth"
-      />
+          <div class="actions">
+            <button id="checkSiteButton" type="button" class="primary">
+              CHECK SITE →
+            </button>
+            <button id="signInButton" type="button" class="secondary">
+              SIGN IN
+            </button>
+          </div>
+        </section>
 
-      <div class="actions">
-        <button id="connectAuthButton" type="button">
-          Sign in / Create account
-        </button>
-      </div>
+        <section class="section hidden" id="authState">
+          <div class="sub-section" id="jobSection">
+            <div class="section-title-row">
+              <p class="section-title">Active / Last Job</p>
+              <span id="jobStatusIcon" class="status-dot status-dot-neutral"
+                >•</span
+              >
+            </div>
+            <p id="jobStatusText" class="status"></p>
+            <p id="jobSummaryText" class="detail"></p>
+            <div class="actions">
+              <button id="runAgainButton" type="button" class="primary">
+                RUN AGAIN
+              </button>
+              <button id="exportButton" type="button" class="secondary">
+                EXPORT RESULTS
+              </button>
+              <button id="viewDetailsButton" type="button" class="secondary">
+                VIEW DETAILS
+              </button>
+            </div>
+          </div>
 
-      <div class="actions">
-        <button id="checkApiButton" type="button">Check API</button>
-      </div>
+          <div class="sub-section hidden" id="noJobState">
+            <div class="actions">
+              <button id="checkSiteAuthButton" type="button" class="primary">
+                CHECK SITE
+              </button>
+            </div>
+          </div>
 
-      <p class="status" id="apiStatusText">Not checked yet.</p>
-      <p class="hint" id="apiDetailsText"></p>
+          <hr />
+
+          <div class="sub-section">
+            <select id="orgSelect" class="input"></select>
+
+            <div class="plan-line">
+              <p class="detail plan-name" id="planNameText">Plan: —</p>
+              <button id="changePlanButton" type="button" class="secondary">
+                Change plan
+              </button>
+            </div>
+
+            <div class="actions">
+              <button id="manageTeamButton" type="button" class="secondary">
+                Manage team
+              </button>
+            </div>
+          </div>
+
+          <hr />
+
+          <div class="sub-section">
+            <select id="scheduleSelect" class="input">
+              <option value="" selected disabled hidden>Schedule job</option>
+              <option value="off">Off</option>
+              <option value="6">Every 6h</option>
+              <option value="12">Every 12h</option>
+              <option value="24">Every 24h</option>
+              <option value="48">Every 48h</option>
+            </select>
+          </div>
+
+          <hr />
+
+          <div class="sub-section">
+            <label class="toggle-label" for="runPublishToggle">
+              Run publish site
+              <input id="runPublishToggle" type="checkbox" />
+            </label>
+          </div>
+        </section>
+      </section>
     </main>
 
     <script src="index.js" defer></script>
