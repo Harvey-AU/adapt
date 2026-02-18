@@ -1276,6 +1276,11 @@ async function connectWebflow(): Promise<void> {
   await refreshDashboard();
 
   if (popupResult?.connected) {
+    try {
+      await setWebflowAutoPublish(true);
+    } catch (error) {
+      console.warn("Unable to enable run-on-publish after connect:", error);
+    }
     return;
   }
 
