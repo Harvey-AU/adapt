@@ -568,29 +568,6 @@ function renderWebflowSites(page = 1) {
       autoPublishToggle.addEventListener("change", handleAutoPublishToggle);
     }
 
-    if (
-      webflowSitesState.connectionId &&
-      site.schedule_interval_hours &&
-      !site.auto_publish_enabled
-    ) {
-      const siteId = site.webflow_site_id;
-      const connectionId = webflowSitesState.connectionId;
-      void setWebflowAutoPublishForSite(siteId, connectionId, true)
-        .then(() => {
-          site.auto_publish_enabled = true;
-          if (autoPublishToggle) {
-            autoPublishToggle.checked = true;
-          }
-        })
-        .catch((error) => {
-          console.warn(
-            "Auto-enable run-on-publish on load failed:",
-            siteId,
-            error
-          );
-        });
-    }
-
     listEl.appendChild(clone);
   }
 
