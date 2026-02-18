@@ -9,20 +9,15 @@
 
   <body>
     <main class="app-shell">
-      <section class="panel" id="panelRoot">
+      <!-- ═══ UNAUTH STATE ═══ -->
+      <section class="panel" id="unauthState">
         <header class="header">
           <div class="top-brand">
             <span class="brand-text">Adapt</span>
           </div>
-          <span id="authStatePill" class="pill"></span>
         </header>
 
-        <div class="status-block">
-          <p id="statusText" class="status"></p>
-          <p id="detailText" class="detail"></p>
-        </div>
-
-        <section class="section" id="unauthState">
+        <div class="section">
           <p class="section-title">
             Run your Webflow site checks without leaving Designer.
           </p>
@@ -34,89 +29,170 @@
 
           <div class="actions">
             <button id="checkSiteButton" type="button" class="primary">
-              CHECK SITE →
+              CHECK SITE &rarr;
             </button>
             <button id="signInButton" type="button" class="secondary">
               SIGN IN
             </button>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="section hidden" id="authState">
-          <div class="sub-section" id="jobSection">
-            <div class="section-title-row">
-              <p class="section-title">Active / Last Job</p>
-              <span id="jobStatusIcon" class="status-dot status-dot-neutral"
-                >•</span
-              >
+      <!-- ═══ AUTH STATE ═══ -->
+      <section class="panel hidden" id="authState">
+        <!-- ─── Top bar: org + plan + settings ─── -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <select id="orgSelect" class="org-dropdown"></select>
+            <div class="plan-badge">
+              <p class="plan-badge-title" id="planNameText">
+                <strong>Plan:</strong> —
+              </p>
+              <p class="plan-badge-remaining" id="planRemainingText">
+                <span class="dot dot-success"></span>
+                <span id="planRemainingValue">—</span>
+              </p>
             </div>
-            <p id="jobStatusText" class="status"></p>
-            <p id="jobSummaryText" class="detail"></p>
-            <div class="actions">
-              <button id="runAgainButton" type="button" class="primary">
-                RUN AGAIN
-              </button>
-              <button id="exportButton" type="button" class="secondary">
-                EXPORT RESULTS
-              </button>
-              <button id="viewDetailsButton" type="button" class="secondary">
-                VIEW DETAILS
+            <!-- TODO: wire up settings gear to open settings page -->
+            <button
+              id="settingsButton"
+              type="button"
+              class="icon-btn"
+              title="Settings"
+            >
+              &#9881;
+            </button>
+          </div>
+          <!-- TODO: placeholder avatar / dark-mode toggle -->
+          <div class="topbar-avatar" id="avatarPlaceholder"></div>
+        </header>
+
+        <!-- ─── Action bar: run + schedule + auto-publish ─── -->
+        <div class="action-bar">
+          <button id="runNowButton" type="button" class="btn-run">
+            Run now &rarr;
+          </button>
+          <select id="scheduleSelect" class="schedule-dropdown">
+            <option value="" selected disabled hidden>Schedule</option>
+            <option value="off">Off</option>
+            <option value="6">Run every 6 hrs</option>
+            <option value="12">Run every 12 hrs</option>
+            <option value="24">Run every 24 hrs</option>
+            <option value="48">Run every 48 hrs</option>
+          </select>
+          <div class="auto-publish-control">
+            <span class="auto-publish-label">Auto-run on publish</span>
+            <input id="runPublishToggle" type="checkbox" class="toggle" />
+          </div>
+        </div>
+
+        <!-- ─── Status messages ─── -->
+        <div class="status-block">
+          <p id="statusText" class="status"></p>
+          <p id="detailText" class="detail"></p>
+        </div>
+
+        <!-- ─── Scrollable content area ─── -->
+        <div class="content-scroll">
+          <!-- Active / current job card -->
+          <div id="jobSection" class="job-card">
+            <div class="job-card-header">
+              <div class="job-status-left">
+                <span id="jobStatusIcon" class="dot dot-neutral"></span>
+                <span id="jobStatusLabel" class="job-status-label"
+                  >Loading&hellip;</span
+                >
+              </div>
+              <div class="job-progress-right">
+                <span class="dot dot-success"></span>
+                <span id="jobProgressText" class="job-progress-text"
+                  >&mdash;</span
+                >
+              </div>
+            </div>
+
+            <!-- Issue summary pills -->
+            <div class="issue-pills" id="jobIssuePills">
+              <!-- Populated by JS: broken links, very slow, slow pills -->
+            </div>
+
+            <div class="job-card-actions">
+              <button id="viewReportButton" type="button" class="btn-link-blue">
+                View full report
               </button>
             </div>
           </div>
 
-          <div class="sub-section hidden" id="noJobState">
-            <div class="actions">
-              <button id="checkSiteAuthButton" type="button" class="primary">
-                CHECK SITE
-              </button>
+          <!-- No job placeholder -->
+          <div id="noJobState" class="no-job-state hidden">
+            <p class="detail">No runs yet for this site.</p>
+            <button id="checkSiteAuthButton" type="button" class="btn-run">
+              CHECK SITE
+            </button>
+          </div>
+
+          <!-- ─── Recent results ─── -->
+          <div class="results-section">
+            <p class="results-heading">Recent results</p>
+            <div id="recentResultsList" class="results-list">
+              <!-- Populated by JS — each child is a .result-card -->
             </div>
           </div>
 
-          <hr />
-
-          <div class="sub-section">
-            <select id="orgSelect" class="input"></select>
-
-            <div class="plan-line">
-              <p class="detail plan-name" id="planNameText">Plan: —</p>
-              <button id="changePlanButton" type="button" class="secondary">
-                Change plan
-              </button>
-            </div>
-
-            <div class="actions">
-              <button id="manageTeamButton" type="button" class="secondary">
-                Manage team
-              </button>
+          <!-- ─── Mini chart ─── -->
+          <div class="chart-section" id="chartSection">
+            <div class="mini-chart" id="miniChart">
+              <!-- TODO: populate stacked bar chart from recent job history -->
             </div>
           </div>
+        </div>
 
-          <hr />
-
-          <div class="sub-section">
-            <select id="scheduleSelect" class="input">
-              <option value="" selected disabled hidden>Schedule job</option>
-              <option value="off">Off</option>
-              <option value="6">Every 6h</option>
-              <option value="12">Every 12h</option>
-              <option value="24">Every 24h</option>
-              <option value="48">Every 48h</option>
-            </select>
-          </div>
-
-          <hr />
-
-          <div class="sub-section">
-            <label class="toggle-label" for="runPublishToggle">
-              Run publish site
-              <input id="runPublishToggle" type="checkbox" />
-            </label>
-          </div>
-        </section>
+        <!-- ─── Footer ─── -->
+        <footer class="panel-footer">
+          <button id="feedbackButton" type="button" class="footer-link">
+            <!-- Chat bubble icon (SVG inline) -->
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+              />
+            </svg>
+            Feedback
+          </button>
+          <button id="helpButton" type="button" class="footer-btn-outline">
+            <!-- Info circle icon (SVG inline) -->
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            Help
+          </button>
+        </footer>
       </section>
     </main>
 
+    <script
+      src="https://unpkg.com/@supabase/supabase-js@2.80.0/dist/umd/supabase.js"
+      defer
+    ></script>
     <script src="index.js" defer></script>
   </body>
 </html>

@@ -1,3 +1,34 @@
+/* global supabase — loaded via CDN <script> in index.html */
+declare const supabase: {
+  createClient: (
+    url: string,
+    key: string,
+    options?: Record<string, unknown>
+  ) => SupabaseClient;
+};
+
+type SupabaseClient = {
+  auth: {
+    setSession: (params: {
+      access_token: string;
+      refresh_token: string;
+    }) => Promise<unknown>;
+  };
+  channel: (name: string) => RealtimeChannel;
+  removeChannel: (channel: RealtimeChannel) => Promise<unknown>;
+};
+
+type RealtimeChannel = {
+  on: (
+    event: string,
+    filter: Record<string, string>,
+    callback: (payload: unknown) => void
+  ) => RealtimeChannel;
+  subscribe: (
+    callback?: (status: string, err?: Error) => void
+  ) => RealtimeChannel;
+};
+
 const API_BASE_STORAGE_KEY = "bbb_extension_api_base";
 const API_TOKEN_STORAGE_KEY = "bbb_extension_api_token_session";
 const AUTH_POPUP_WIDTH = 520;
@@ -7,6 +38,13 @@ const AUTH_POPUP_NAME = "bbbExtensionAuth";
 const SCHEDULE_PLACEHOLDER = "";
 const SCHEDULE_OPTIONS = ["off", "6", "12", "24", "48"] as const;
 const JOB_POLLING_INTERVAL_MS = 6000;
+
+// Realtime subscription constants (mirrors dashboard pattern)
+const REALTIME_DEBOUNCE_MS = 250;
+const SUBSCRIBE_RETRY_INTERVAL_MS = 1000;
+const FALLBACK_POLLING_INTERVAL_MS = 1000;
+const MAX_SUBSCRIBE_RETRIES = 15;
+
 const APP_ROUTES = {
   dashboard: "/dashboard",
   viewJob: "/jobs",
@@ -167,37 +205,53 @@ function extractErrorMessage(rawBody?: string): string {
 }
 
 const ui = {
+  // Status messages
   statusText: document.getElementById("statusText"),
   detailText: document.getElementById("detailText"),
+
+  // Auth states
   unauthState: document.getElementById("unauthState"),
   authState: document.getElementById("authState"),
-  authStatePill: document.getElementById("authStatePill"),
 
+  // Unauth buttons
   checkSiteButton: document.getElementById("checkSiteButton"),
   signInButton: document.getElementById("signInButton"),
-  runAgainButton: document.getElementById("runAgainButton"),
-  exportButton: document.getElementById("exportButton"),
-  viewDetailsButton: document.getElementById("viewDetailsButton"),
-  checkSiteAuthButton: document.getElementById("checkSiteAuthButton"),
 
-  jobSection: document.getElementById("jobSection"),
-  noJobState: document.getElementById("noJobState"),
-
-  jobStatusIcon: document.getElementById("jobStatusIcon"),
-  jobStatusText: document.getElementById("jobStatusText"),
-  jobSummaryText: document.getElementById("jobSummaryText"),
-
+  // Top bar
   orgSelect: document.getElementById("orgSelect") as HTMLSelectElement | null,
   planNameText: document.getElementById("planNameText"),
-  changePlanButton: document.getElementById("changePlanButton"),
-  manageTeamButton: document.getElementById("manageTeamButton"),
+  planRemainingText: document.getElementById("planRemainingText"),
+  planRemainingValue: document.getElementById("planRemainingValue"),
+  settingsButton: document.getElementById("settingsButton"),
 
+  // Action bar
+  runNowButton: document.getElementById("runNowButton"),
   scheduleSelect: document.getElementById(
     "scheduleSelect"
   ) as HTMLSelectElement | null,
   webflowPublishToggle: document.getElementById(
     "runPublishToggle"
   ) as HTMLInputElement | null,
+
+  // Job card
+  jobSection: document.getElementById("jobSection"),
+  noJobState: document.getElementById("noJobState"),
+  jobStatusIcon: document.getElementById("jobStatusIcon"),
+  jobStatusLabel: document.getElementById("jobStatusLabel"),
+  jobProgressText: document.getElementById("jobProgressText"),
+  jobIssuePills: document.getElementById("jobIssuePills"),
+  viewReportButton: document.getElementById("viewReportButton"),
+  checkSiteAuthButton: document.getElementById("checkSiteAuthButton"),
+
+  // Recent results
+  recentResultsList: document.getElementById("recentResultsList"),
+
+  // Mini chart
+  miniChart: document.getElementById("miniChart"),
+
+  // Footer
+  feedbackButton: document.getElementById("feedbackButton"),
+  helpButton: document.getElementById("helpButton"),
 };
 
 type ExtensionState = {
@@ -234,6 +288,17 @@ const state: ExtensionState = {
 let jobStatusPoller: number | null = null;
 let jobPollInFlight = false;
 
+// Supabase realtime state
+let supabaseClient: SupabaseClient | null = null;
+let jobsChannel: RealtimeChannel | null = null;
+let subscribeRetryCount = 0;
+let subscribeRetryTimeoutId: number | null = null;
+let fallbackPollingIntervalId: number | null = null;
+let lastRealtimeRefresh = 0;
+let throttleTimeoutId: number | null = null;
+let isRealtimeRefreshing = false;
+let cleanupHandlerRegistered = false;
+
 function getStoredBaseUrl(): string {
   return localStorage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_BBB_APP_ORIGIN;
 }
@@ -249,6 +314,77 @@ function setStoredToken(token: string | null): void {
     sessionStorage.removeItem(API_TOKEN_STORAGE_KEY);
   }
   state.token = token;
+}
+
+type SupabaseConfig = {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+};
+
+async function fetchSupabaseConfig(): Promise<SupabaseConfig | null> {
+  try {
+    const response = await fetch(`${state.apiBaseUrl}/config.js`);
+    if (!response.ok) {
+      console.warn("Failed to fetch Supabase config:", response.status);
+      return null;
+    }
+
+    const scriptText = await response.text();
+    // config.js sets window.BBB_CONFIG = { supabaseUrl, supabaseAnonKey, ... }
+    // Parse the JSON object from the assignment.
+    const match = scriptText.match(/window\.BBB_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+    if (!match?.[1]) {
+      console.warn("Could not parse BBB_CONFIG from config.js");
+      return null;
+    }
+
+    const config = JSON.parse(match[1]) as Record<string, string>;
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      console.warn("Supabase config missing url or anon key");
+      return null;
+    }
+
+    return {
+      supabaseUrl: config.supabaseUrl,
+      supabaseAnonKey: config.supabaseAnonKey,
+    };
+  } catch (error) {
+    console.warn("Error fetching Supabase config:", error);
+    return null;
+  }
+}
+
+async function initSupabaseClient(): Promise<SupabaseClient | null> {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  if (!state.token) {
+    return null;
+  }
+
+  const config = await fetchSupabaseConfig();
+  if (!config) {
+    return null;
+  }
+
+  if (typeof supabase === "undefined" || !supabase?.createClient) {
+    console.warn("Supabase SDK not loaded — realtime unavailable");
+    return null;
+  }
+
+  supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Set the session using the JWT we already have from extension auth.
+  // No refresh token available — the extension auth flow only returns the access token.
+  await supabaseClient.auth.setSession({
+    access_token: state.token,
+    refresh_token: "",
+  });
+
+  return supabaseClient;
 }
 
 function asNode(element: Element | null): HTMLElement | null {
@@ -369,6 +505,13 @@ function stopJobStatusPolling(): void {
 }
 
 function startJobStatusPolling(): void {
+  // When realtime is active, the realtime subscription + fallback polling
+  // handle all refreshes. Only start the legacy 6s poller if we have no
+  // realtime channel (e.g. Supabase config unavailable).
+  if (jobsChannel || fallbackPollingIntervalId) {
+    return;
+  }
+
   stopJobStatusPolling();
 
   if (!state.token || !state.currentJob || !state.siteDomain) {
@@ -383,6 +526,188 @@ function startJobStatusPolling(): void {
     void refreshCurrentJob();
   }, JOB_POLLING_INTERVAL_MS);
 }
+
+// ---------------------------------------------------------------------------
+// Realtime: throttled refresh, fallback polling, subscription, cleanup
+// ---------------------------------------------------------------------------
+
+async function realtimeRefresh(): Promise<void> {
+  if (isRealtimeRefreshing) return;
+  isRealtimeRefreshing = true;
+  lastRealtimeRefresh = Date.now();
+
+  try {
+    // Refresh both job state and usage stats, matching the dashboard pattern.
+    await Promise.all([refreshCurrentJob(), refreshUsage()]);
+  } finally {
+    isRealtimeRefreshing = false;
+  }
+}
+
+async function refreshUsage(): Promise<void> {
+  if (!state.token) return;
+
+  try {
+    const usageData = await apiRequest<UsageResponse>("/v1/usage", {
+      method: "GET",
+    });
+    state.usage = usageData.usage || null;
+    renderUsage(state.usage);
+  } catch (error) {
+    // Non-critical — keep existing usage displayed.
+    console.warn("Failed to refresh usage stats:", error);
+  }
+}
+
+function throttledRealtimeRefresh(): void {
+  // Receiving a real event proves realtime works — stop fallback polling.
+  clearFallbackPolling();
+
+  const now = Date.now();
+  const timeSinceLastRefresh = now - lastRealtimeRefresh;
+
+  if (timeSinceLastRefresh >= REALTIME_DEBOUNCE_MS && !isRealtimeRefreshing) {
+    void realtimeRefresh();
+    return;
+  }
+
+  // Schedule a refresh when the throttle window expires.
+  if (!throttleTimeoutId && !isRealtimeRefreshing) {
+    const delay = REALTIME_DEBOUNCE_MS - timeSinceLastRefresh;
+    throttleTimeoutId = window.setTimeout(() => {
+      throttleTimeoutId = null;
+      if (!isRealtimeRefreshing) {
+        void realtimeRefresh();
+      }
+    }, Math.max(delay, 100));
+  }
+}
+
+function startFallbackPolling(): void {
+  if (fallbackPollingIntervalId) return;
+
+  fallbackPollingIntervalId = window.setInterval(() => {
+    void realtimeRefresh();
+  }, FALLBACK_POLLING_INTERVAL_MS);
+}
+
+function clearFallbackPolling(): void {
+  if (fallbackPollingIntervalId) {
+    window.clearInterval(fallbackPollingIntervalId);
+    fallbackPollingIntervalId = null;
+  }
+}
+
+function cleanupRealtimeSubscription(): void {
+  if (subscribeRetryTimeoutId) {
+    window.clearTimeout(subscribeRetryTimeoutId);
+    subscribeRetryTimeoutId = null;
+  }
+
+  if (throttleTimeoutId) {
+    window.clearTimeout(throttleTimeoutId);
+    throttleTimeoutId = null;
+  }
+
+  clearFallbackPolling();
+
+  if (jobsChannel && supabaseClient) {
+    supabaseClient.removeChannel(jobsChannel);
+    jobsChannel = null;
+  }
+
+  subscribeRetryCount = 0;
+  cleanupHandlerRegistered = false;
+}
+
+async function subscribeToJobUpdates(): Promise<void> {
+  const orgId = state.activeOrganisationId;
+  if (!orgId || !supabaseClient) {
+    if (subscribeRetryCount < MAX_SUBSCRIBE_RETRIES) {
+      subscribeRetryCount++;
+      subscribeRetryTimeoutId = window.setTimeout(
+        () => void subscribeToJobUpdates(),
+        SUBSCRIBE_RETRY_INTERVAL_MS
+      );
+    } else {
+      console.warn("[Realtime] Max retries reached, enabling fallback polling");
+      startFallbackPolling();
+    }
+    return;
+  }
+
+  // Reset retry state on success.
+  subscribeRetryCount = 0;
+  subscribeRetryTimeoutId = null;
+
+  // Clean up existing subscription if any.
+  if (jobsChannel && supabaseClient) {
+    try {
+      await supabaseClient.removeChannel(jobsChannel);
+    } catch (_e) {
+      // Ignore removal errors.
+    }
+    jobsChannel = null;
+  }
+
+  // Register cleanup handler once.
+  if (!cleanupHandlerRegistered) {
+    window.addEventListener("beforeunload", cleanupRealtimeSubscription);
+    cleanupHandlerRegistered = true;
+  }
+
+  try {
+    const channel = supabaseClient
+      .channel(`jobs-changes:${orgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `organisation_id=eq.${orgId}`,
+        },
+        () => throttledRealtimeRefresh()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "jobs",
+          filter: `organisation_id=eq.${orgId}`,
+        },
+        () => throttledRealtimeRefresh()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "jobs",
+          filter: `organisation_id=eq.${orgId}`,
+        },
+        () => throttledRealtimeRefresh()
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || err) {
+          console.warn(
+            "[Realtime] Connection issue, fallback polling will continue"
+          );
+        }
+        // Fallback polling stops only when we receive an actual realtime event.
+      });
+
+    // Start fallback polling immediately — cleared when a real event arrives.
+    startFallbackPolling();
+    jobsChannel = channel;
+  } catch (err) {
+    console.error("[Realtime] Failed to subscribe to jobs:", err);
+    startFallbackPolling();
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 async function refreshCurrentJob(): Promise<void> {
   if (jobPollInFlight || !state.token || !state.siteDomain) {
@@ -623,67 +948,527 @@ function renderAuthState(isAuthed: boolean): void {
   if (isAuthed) {
     hide(asNode(ui.unauthState));
     show(asNode(ui.authState));
-    show(asNode(ui.authStatePill));
-    setText(ui.authStatePill, "Connected");
-    if (ui.authStatePill instanceof HTMLElement) {
-      ui.authStatePill.className = "pill pill-ok";
-    }
     return;
   }
 
   show(asNode(ui.unauthState));
   hide(asNode(ui.authState));
-  hide(asNode(ui.authStatePill));
-  if (ui.authStatePill instanceof HTMLElement) {
-    ui.authStatePill.className = "pill";
-  }
 }
 
+// ---------------------------------------------------------------------------
+// Rendering helpers
+// ---------------------------------------------------------------------------
+
+function dotClassForJob(status: string): string {
+  if (status === "completed") {
+    return "dot dot-success";
+  }
+
+  if (
+    status === "running" ||
+    status === "initializing" ||
+    status === "pending"
+  ) {
+    return "dot dot-warn-ring";
+  }
+
+  return "dot dot-danger";
+}
+
+/** Show the in-progress card only for active jobs; hide for completed/none. */
 function renderJobState(job: JobItem | null): void {
-  if (!job) {
+  if (!job || !isActiveJobStatus(job.status)) {
     stopJobStatusPolling();
     hide(asNode(ui.jobSection));
-    show(asNode(ui.noJobState));
-    setText(ui.jobStatusIcon, "");
-    setText(ui.jobStatusText, "");
-    setText(ui.jobSummaryText, "");
+    // Show no-job placeholder only when there are zero jobs at all
+    // (if there are completed jobs, recent results will fill the space)
     return;
   }
 
   show(asNode(ui.jobSection));
-  hide(asNode(ui.noJobState));
-  const status = statusLabelForJob(job.status);
-  const iconClass = statusClassForJob(job.status);
-  setText(ui.jobStatusIcon, "•");
+
+  // Status dot
   if (ui.jobStatusIcon) {
-    ui.jobStatusIcon.className = `status-dot ${iconClass}`;
+    ui.jobStatusIcon.className = dotClassForJob(job.status);
   }
 
-  const domain = job.domains?.name || state.siteDomain || "current site";
-  const dateText = formatDate(job.completed_at || job.created_at);
+  // Status label
+  setText(ui.jobStatusLabel, statusLabelForJob(job.status));
+
+  // Progress: "218 / 372 pages"
   setText(
-    ui.jobStatusText,
-    `${status} • ${job.total_tasks} pages • ${Math.round(job.progress)}% complete (${job.completed_tasks} done, ${job.failed_tasks} issues)`
+    ui.jobProgressText,
+    `${job.completed_tasks} / ${job.total_tasks} pages`
   );
-  setText(ui.jobSummaryText, `${domain} • Latest run ${dateText}`);
+
+  // Issue pills on the in-progress card
+  renderIssuePillsInto(ui.jobIssuePills, job);
+}
+
+/** Render issue-category pills into a container. */
+function renderIssuePillsInto(
+  container: HTMLElement | null,
+  job: JobItem
+): void {
+  if (!container) {
+    return;
+  }
+
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  // TODO: when task-level breakdown API is available, split into
+  // broken_links, very_slow, slow counts. For now derive from failed_tasks.
+  const brokenLinks = job.failed_tasks;
+  // TODO: replace placeholders with real per-task timing data from API
+  const verySlow = job.skipped_tasks || 2; // placeholder
+  const slow = Math.max(1, Math.floor(job.total_tasks * 0.05)); // placeholder
+
+  if (brokenLinks > 0) {
+    container.appendChild(
+      makePill("dot-danger", `${brokenLinks} broken link${brokenLinks !== 1 ? "s" : ""}`)
+    );
+  }
+  if (verySlow > 0) {
+    container.appendChild(
+      makePill("dot-danger", `${verySlow} very slow`)
+    );
+  }
+  if (slow > 0) {
+    container.appendChild(makePill("dot-warn", `${slow} slow`));
+  }
+}
+
+function makePill(dotClass: string, label: string): HTMLSpanElement {
+  const pill = document.createElement("span");
+  pill.className = "issue-pill";
+  pill.innerHTML = `<span class="dot ${dotClass}"></span> ${label}`;
+  return pill;
+}
+
+// ---------------------------------------------------------------------------
+// Date formatting
+// ---------------------------------------------------------------------------
+
+function formatShortDate(value?: string): string {
+  if (!value) {
+    return "";
+  }
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return "";
+  }
+
+  const day = d.getDate();
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  const month = months[d.getMonth()];
+  const hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+  const ampm = hours >= 12 ? "pm" : "am";
+  const h = hours % 12 || 12;
+
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+
+  return `${day}${suffix} ${month} ${h}:${minutes}${ampm}`;
+}
+
+// ---------------------------------------------------------------------------
+// Recent results list (completed jobs only)
+// ---------------------------------------------------------------------------
+
+function filterSiteJobs(jobs: JobItem[]): JobItem[] {
+  const candidates = getSiteDomainCandidates();
+  return jobs.filter((job) => {
+    const jobDomain = normalizeDomain(job.domains?.name || "");
+    return !candidates.length || candidates.includes(jobDomain);
+  });
+}
+
+function renderRecentResults(jobs: JobItem[]): void {
+  const container = ui.recentResultsList;
+  if (!container) {
+    return;
+  }
+
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  const siteJobs = filterSiteJobs(jobs);
+
+  // All completed / non-active jobs go here
+  const completedJobs = siteJobs.filter(
+    (job) => !isActiveJobStatus(job.status)
+  );
+
+  // Show/hide no-job state based on whether there are ANY jobs
+  if (siteJobs.length === 0) {
+    show(asNode(ui.noJobState));
+  } else {
+    hide(asNode(ui.noJobState));
+  }
+
+  if (completedJobs.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "detail";
+    empty.textContent = "No completed runs yet.";
+    container.appendChild(empty);
+    return;
+  }
+
+  // Show up to 3 recent completed jobs — one card per job
+  for (const job of completedJobs.slice(0, 3)) {
+    container.appendChild(buildResultCard(job));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Result card builder
+// ---------------------------------------------------------------------------
+
+function buildResultCard(job: JobItem): HTMLElement {
+  const card = document.createElement("div");
+  card.className = "result-card";
+
+  const successCount = Math.max(0, job.completed_tasks - job.failed_tasks);
+  const dateStr = formatShortDate(job.completed_at || job.created_at);
+
+  // ── Row 1: date + success / total ──
+  const header = document.createElement("div");
+  header.className = "result-card-header";
+  header.innerHTML = `
+    <p class="result-card-date">${dateStr}</p>
+    <div class="result-card-success">
+      <span class="dot dot-success"></span>
+      <span class="result-card-success-count">${successCount} Success</span>
+      <span class="result-card-success-total">/ ${job.total_tasks} pages</span>
+    </div>`;
+  card.appendChild(header);
+
+  // ── Row 2: speed stats ──
+  const stats = document.createElement("div");
+  stats.className = "result-card-stats";
+
+  if (job.avg_time_per_task_seconds) {
+    const avgMs = Math.round(job.avg_time_per_task_seconds * 1000);
+    stats.innerHTML += `<span>Avg: ${avgMs.toLocaleString()}ms</span>`;
+  }
+  // TODO: connect slowest, saved, cached when per-job timing stats available
+  // Placeholder values shown to match Figma layout
+  if (job.duration_seconds) {
+    const totalMs = Math.round(job.duration_seconds * 1000);
+    stats.innerHTML += `<span>Saved: ${totalMs.toLocaleString()}ms</span>`;
+  }
+  // TODO: "Cached: XX%" needs cache-hit data from API
+  card.appendChild(stats);
+
+  // ── Row 3: issue pills (tabs) + issues detail table ──
+  // Derive counts — TODO: replace with real per-task timing data from API
+  const brokenLinks = job.failed_tasks;
+  const verySlow = job.skipped_tasks || 2; // placeholder until API provides timing breakdown
+  const slow = Math.max(1, Math.floor(job.total_tasks * 0.05)); // placeholder
+
+  const issuesContainer = document.createElement("div");
+  issuesContainer.className = "issues-detail";
+
+  // Tab row
+  const tabs = document.createElement("div");
+  tabs.className = "issues-tabs";
+
+  type TabDef = { dotClass: string; label: string; count: number; key: string };
+  const tabDefs: TabDef[] = [
+    {
+      dotClass: "dot-danger",
+      label: "broken link",
+      count: brokenLinks,
+      key: "broken",
+    },
+    {
+      dotClass: "dot-danger",
+      label: "very slow",
+      count: verySlow,
+      key: "veryslow",
+    },
+    { dotClass: "dot-warn", label: "slow", count: slow, key: "slow" },
+  ];
+
+  // Detail table panel (hidden by default, shown on tab click)
+  const tablePanel = document.createElement("div");
+  tablePanel.className = "issues-table hidden";
+
+  let hasAnyIssues = false;
+  const tabElements: HTMLElement[] = [];
+
+  for (const def of tabDefs) {
+    if (def.count <= 0) {
+      continue;
+    }
+    hasAnyIssues = true;
+
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "issues-tab";
+    tab.dataset.tabKey = def.key;
+    tab.innerHTML = `<span class="dot ${def.dotClass}"></span> ${def.count} ${def.label}${def.count !== 1 && def.label === "broken link" ? "s" : ""}`;
+
+    tab.addEventListener("click", () => {
+      // Toggle: if already active, collapse
+      const wasActive = tab.classList.contains("active");
+
+      // Deactivate all tabs
+      for (const t of tabElements) {
+        t.classList.remove("active");
+      }
+
+      if (wasActive) {
+        hide(tablePanel);
+        return;
+      }
+
+      tab.classList.add("active");
+      show(tablePanel);
+      renderIssuesTable(tablePanel, job, def.key);
+    });
+
+    tabs.appendChild(tab);
+    tabElements.push(tab);
+  }
+
+  if (hasAnyIssues) {
+    issuesContainer.appendChild(tabs);
+    issuesContainer.appendChild(tablePanel);
+    card.appendChild(issuesContainer);
+  }
+
+  // ── Row 4: pills row (for non-tab display) + CSV button ──
+  const pillsRow = document.createElement("div");
+  pillsRow.className = "result-card-pills";
+
+  // If no issues, still show the pill row for CSV button
+  if (!hasAnyIssues) {
+    // No issue tabs needed
+  }
+
+  // CSV export button
+  const csvBtn = document.createElement("button");
+  csvBtn.type = "button";
+  csvBtn.className = "btn-outline-sm";
+  csvBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> CSV Results`;
+  csvBtn.addEventListener("click", () => {
+    void exportJob(job.id);
+  });
+  pillsRow.appendChild(csvBtn);
+
+  card.appendChild(pillsRow);
+
+  return card;
+}
+
+// ---------------------------------------------------------------------------
+// Issues detail table (inside a result card, toggled by tab click)
+// ---------------------------------------------------------------------------
+
+function renderIssuesTable(
+  panel: HTMLElement,
+  _job: JobItem,
+  tabKey: string
+): void {
+  while (panel.firstChild) {
+    panel.removeChild(panel.firstChild);
+  }
+
+  // TODO: fetch task-level issue data from API
+  // e.g. GET /v1/jobs/{id}/tasks?status=failed or similar
+  // For now, show placeholder rows
+
+  const columnLabels: Record<string, [string, string]> = {
+    broken: ["Broken URL", "Found at"],
+    veryslow: ["Slow URL", "Response time"],
+    slow: ["URL", "Response time"],
+  };
+
+  const [col1Label, col2Label] = columnLabels[tabKey] || [
+    "URL",
+    "Details",
+  ];
+
+  // Placeholder data — TODO: replace with real task data from API
+  const placeholderRows: [string, string][] =
+    tabKey === "broken"
+      ? [
+          ["/about-us/team", "/contact"],
+          ["/blog/old-post", "/homepage"],
+          ["/resources/download", "/pricing"],
+        ]
+      : tabKey === "veryslow"
+        ? [
+            ["/gallery/portfolio", "4,200ms"],
+            ["/shop/all-products", "3,800ms"],
+            ["/blog/media-heavy", "3,500ms"],
+          ]
+        : [
+            ["/services/consulting", "1,800ms"],
+            ["/about-us", "1,500ms"],
+            ["/faq", "1,200ms"],
+          ];
+
+  // Build two-column table
+  const body = document.createElement("div");
+  body.className = "issues-table-body";
+
+  const col1 = document.createElement("div");
+  col1.className = "issues-table-col";
+  col1.innerHTML = `<div class="issues-table-heading">${col1Label}</div>`;
+
+  const col2 = document.createElement("div");
+  col2.className = "issues-table-col";
+  col2.innerHTML = `<div class="issues-table-heading">${col2Label}</div>`;
+
+  for (const [val1, val2] of placeholderRows) {
+    const row1 = document.createElement("div");
+    row1.className = "issues-table-row";
+    row1.innerHTML = `<span class="issues-table-cell">${val1}</span>`;
+    col1.appendChild(row1);
+
+    const row2 = document.createElement("div");
+    row2.className = "issues-table-row";
+    row2.innerHTML = `<span class="issues-table-cell">${val2}</span>`;
+    col2.appendChild(row2);
+  }
+
+  body.appendChild(col1);
+  body.appendChild(col2);
+  panel.appendChild(body);
+
+  // "View all" footer link
+  const footer = document.createElement("div");
+  footer.className = "issues-table-footer";
+  // TODO: update count and link to full report when API data is available
+  const viewAllBtn = document.createElement("button");
+  viewAllBtn.type = "button";
+  viewAllBtn.className = "btn-link-blue";
+  viewAllBtn.textContent = `View all ${tabKey === "broken" ? "broken links" : tabKey === "veryslow" ? "very slow pages" : "slow pages"}`;
+  viewAllBtn.addEventListener("click", () => {
+    const detailPath = _job.id
+      ? `${APP_ROUTES.viewJob}/${encodeURIComponent(_job.id)}`
+      : APP_ROUTES.dashboard;
+    openSettingsPage(detailPath);
+  });
+  footer.appendChild(viewAllBtn);
+  panel.appendChild(footer);
+}
+
+// ---------------------------------------------------------------------------
+// Job export
+// ---------------------------------------------------------------------------
+
+async function exportJob(jobId: string): Promise<void> {
+  try {
+    const response = await fetch(
+      `${state.apiBaseUrl}/v1/jobs/${jobId}/export`,
+      {
+        headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Export failed (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${jobId}-adapt-export.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    setStatus(
+      "Export failed",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mini chart
+// ---------------------------------------------------------------------------
+
+function renderMiniChart(jobs: JobItem[]): void {
+  const container = ui.miniChart;
+  if (!container) {
+    return;
+  }
+
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  const siteJobs = filterSiteJobs(jobs).slice(0, 6);
+
+  if (siteJobs.length === 0) {
+    return;
+  }
+
+  const maxFailed = Math.max(...siteJobs.map((j) => j.failed_tasks), 1);
+
+  for (const job of siteJobs) {
+    const bar = document.createElement("div");
+    bar.className = "chart-bar";
+
+    // Red segment = broken links (failed_tasks)
+    // Amber segment = slow pages (skipped_tasks as proxy)
+    // TODO: replace with real broken vs slow split from task-level data
+    if (job.failed_tasks > 0) {
+      const seg = document.createElement("div");
+      seg.className = "chart-bar-danger";
+      seg.style.height = `${Math.max(4, Math.round((job.failed_tasks / maxFailed) * 30))}px`;
+      bar.appendChild(seg);
+    }
+
+    if (job.skipped_tasks > 0) {
+      const seg = document.createElement("div");
+      seg.className = "chart-bar-warn";
+      seg.style.height = `${Math.max(4, Math.round((job.skipped_tasks / maxFailed) * 30))}px`;
+      bar.appendChild(seg);
+    }
+
+    if (bar.children.length > 0) {
+      container.appendChild(bar);
+    }
+  }
 }
 
 function renderUsage(usage: UsageStats | null): void {
   if (!usage) {
-    setText(ui.planNameText, "Plan: —");
+    if (ui.planNameText) {
+      ui.planNameText.innerHTML = "<strong>Plan:</strong> \u2014";
+    }
+    setText(ui.planRemainingValue, "\u2014");
     return;
   }
 
-  const plan = usage.plan_display_name || usage.plan_name;
-  const used = usage.daily_used.toLocaleString();
-  const remainingPercent = Math.max(
-    0,
-    Math.min(100, Math.round(100 - usage.usage_percentage))
-  );
-  setText(
-    ui.planNameText,
-    `Plan: ${plan || "Plan"} (${remainingPercent}% remaining) ${used} used`
-  );
+  const plan = usage.plan_display_name || usage.plan_name || "Plan";
+  const limit = usage.daily_limit.toLocaleString();
+
+  if (ui.planNameText) {
+    ui.planNameText.innerHTML = `<strong>Plan:</strong> <strong>${plan}</strong> (${limit} pages / day)`;
+  }
+
+  const remaining = usage.daily_remaining.toLocaleString();
+  setText(ui.planRemainingValue, `${remaining} pages remaining`);
 }
 
 function renderOrganisations() {
@@ -762,21 +1547,19 @@ function setLoading(element: Element | null, disabled: boolean): void {
 }
 
 function setDisabledAll(disabled: boolean): void {
-  const buttons: (Element | null)[] = [
+  const controls: (Element | null)[] = [
     ui.checkSiteButton,
     ui.checkSiteAuthButton,
     ui.signInButton,
-    ui.runAgainButton,
-    ui.exportButton,
-    ui.viewDetailsButton,
-    ui.changePlanButton,
-    ui.manageTeamButton,
+    ui.runNowButton,
+    ui.viewReportButton,
     ui.scheduleSelect,
     ui.orgSelect,
     ui.webflowPublishToggle,
+    ui.settingsButton,
   ];
 
-  for (const control of buttons) {
+  for (const control of controls) {
     setLoading(control, disabled);
   }
 
@@ -818,6 +1601,8 @@ async function loadLatestJob(): Promise<void> {
   if (!state.siteDomain || !state.token) {
     state.currentJob = null;
     renderJobState(null);
+    renderRecentResults([]);
+    renderMiniChart([]);
     stopJobStatusPolling();
     return;
   }
@@ -830,10 +1615,14 @@ async function loadLatestJob(): Promise<void> {
     const latest = pickLatestJobForCurrentSite(response.jobs);
     state.currentJob = latest;
     renderJobState(latest);
+    renderRecentResults(response.jobs);
+    renderMiniChart(response.jobs);
     startJobStatusPolling();
   } catch (error) {
     state.currentJob = null;
     renderJobState(null);
+    renderRecentResults([]);
+    renderMiniChart([]);
     stopJobStatusPolling();
     console.error(error);
   }
@@ -1092,24 +1881,7 @@ async function exportCurrentJob(): Promise<void> {
     return;
   }
 
-  const response = await fetch(
-    `${state.apiBaseUrl}/v1/jobs/${state.currentJob.id}/export`,
-    {
-      headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Export failed (${response.status})`);
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${state.currentJob.id}-adapt-export.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  await exportJob(state.currentJob.id);
 }
 
 function handleAuthError(error: unknown): void {
@@ -1117,6 +1889,8 @@ function handleAuthError(error: unknown): void {
     const apiError = error as ApiError;
     if (apiError.status === 401) {
       setStoredToken(null);
+      cleanupRealtimeSubscription();
+      supabaseClient = null;
       renderAuthState(false);
       setStatus("Session expired. Sign in again.", "");
       return;
@@ -1156,7 +1930,11 @@ async function refreshDashboard(): Promise<void> {
       state.organisations = [];
       state.currentScheduler = null;
       stopJobStatusPolling();
+      cleanupRealtimeSubscription();
+      supabaseClient = null;
       renderJobState(null);
+      renderRecentResults([]);
+      renderMiniChart([]);
       renderUsage(null);
       renderOrganisations();
       renderScheduleState();
@@ -1173,7 +1951,14 @@ async function refreshDashboard(): Promise<void> {
       ]);
       renderUsage(state.usage);
       renderOrganisations();
-      startJobStatusPolling();
+
+      // Initialise Supabase realtime; fall back to legacy polling on failure.
+      const client = await initSupabaseClient();
+      if (client) {
+        void subscribeToJobUpdates();
+      } else {
+        startJobStatusPolling();
+      }
     } catch (error) {
       await handleAuthError(error);
     }
@@ -1308,11 +2093,8 @@ async function connectWebflow(): Promise<void> {
 }
 
 function initEventHandlers(): void {
-  if (!ui.checkSiteButton) {
-    return;
-  }
-
-  ui.checkSiteButton.addEventListener("click", async () => {
+  // Unauth: check site
+  ui.checkSiteButton?.addEventListener("click", async () => {
     try {
       await runScanForCurrentSite();
     } catch (error) {
@@ -1320,12 +2102,14 @@ function initEventHandlers(): void {
     }
   });
 
+  // Unauth: sign in
   ui.signInButton?.addEventListener("click", async () => {
     await connectAccount();
     await refreshDashboard();
   });
 
-  ui.runAgainButton?.addEventListener("click", async () => {
+  // Auth: run now (action bar)
+  ui.runNowButton?.addEventListener("click", async () => {
     try {
       await runScanForCurrentSite();
     } catch (error) {
@@ -1333,6 +2117,7 @@ function initEventHandlers(): void {
     }
   });
 
+  // Auth: check site (no-job state)
   ui.checkSiteAuthButton?.addEventListener("click", async () => {
     try {
       await runScanForCurrentSite();
@@ -1341,36 +2126,25 @@ function initEventHandlers(): void {
     }
   });
 
-  ui.exportButton?.addEventListener("click", async () => {
-    try {
-      await exportCurrentJob();
-    } catch (error) {
-      setStatus(
-        "Export failed",
-        error instanceof Error ? error.message : "Unknown error"
-      );
-    }
-  });
-
-  ui.viewDetailsButton?.addEventListener("click", () => {
+  // Auth: view full report
+  ui.viewReportButton?.addEventListener("click", () => {
     const detailPath = state.currentJob?.id
       ? `${APP_ROUTES.viewJob}/${encodeURIComponent(state.currentJob.id)}`
       : APP_ROUTES.dashboard;
     openSettingsPage(detailPath);
   });
 
-  ui.changePlanButton?.addEventListener("click", () => {
+  // Auth: settings gear
+  ui.settingsButton?.addEventListener("click", () => {
     openSettingsPage(APP_ROUTES.changePlan);
   });
 
-  ui.manageTeamButton?.addEventListener("click", () => {
-    openSettingsPage(APP_ROUTES.manageTeam);
-  });
-
+  // Auth: org switcher
   ui.orgSelect?.addEventListener("change", () => {
     void switchOrganisation();
   });
 
+  // Auth: schedule select
   ui.scheduleSelect?.addEventListener("change", async () => {
     const select = asSelect(ui.scheduleSelect);
     if (!select) {
@@ -1385,6 +2159,7 @@ function initEventHandlers(): void {
     }
   });
 
+  // Auth: auto-publish toggle
   ui.webflowPublishToggle?.addEventListener("change", async (event) => {
     const target = event.target as HTMLInputElement | null;
     if (!target) {
@@ -1404,10 +2179,25 @@ function initEventHandlers(): void {
       await handleAuthError(error);
     }
   });
+
+  // Footer: feedback
+  // TODO: connect to feedback form or mailto link
+  ui.feedbackButton?.addEventListener("click", () => {
+    openSettingsPage(APP_ROUTES.dashboard);
+  });
+
+  // Footer: help
+  // TODO: connect to help/docs page
+  ui.helpButton?.addEventListener("click", () => {
+    openSettingsPage(APP_ROUTES.dashboard);
+  });
 }
 
 async function initialise(): Promise<void> {
-  window.addEventListener("beforeunload", stopJobStatusPolling);
+  window.addEventListener("beforeunload", () => {
+    stopJobStatusPolling();
+    cleanupRealtimeSubscription();
+  });
   try {
     localStorage.setItem(API_BASE_STORAGE_KEY, state.apiBaseUrl);
   } catch (_error) {
