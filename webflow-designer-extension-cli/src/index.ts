@@ -1221,52 +1221,53 @@ async function connectWebflow(): Promise<void> {
     return;
   }
 
-  const popupResult = await new Promise<{ connected?: boolean; error?: string }>(
-    (resolve) => {
-      let timer: number | undefined;
-      const origin = new URL(state.apiBaseUrl).origin;
-      const handleMessage = (event: MessageEvent) => {
-        if (event.source !== popup || event.origin !== origin) {
-          return;
-        }
+  const popupResult = await new Promise<{
+    connected?: boolean;
+    error?: string;
+  }>((resolve) => {
+    let timer: number | undefined;
+    const origin = new URL(state.apiBaseUrl).origin;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== popup || event.origin !== origin) {
+        return;
+      }
 
-        const payload = event.data as {
-          source?: string;
-          type?: string;
-          connected?: boolean;
-          error?: string;
-        };
+      const payload = event.data as {
+        source?: string;
+        type?: string;
+        connected?: boolean;
+        error?: string;
+      };
 
-        if (
-          payload?.source !== "bbb-webflow-connect" ||
-          payload.type !== "webflow-connect-complete"
-        ) {
-          return;
-        }
+      if (
+        payload?.source !== "bbb-webflow-connect" ||
+        payload.type !== "webflow-connect-complete"
+      ) {
+        return;
+      }
 
+      if (timer) {
+        window.clearInterval(timer);
+      }
+      window.removeEventListener("message", handleMessage);
+      resolve({
+        connected: payload.connected,
+        error: payload.error,
+      });
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    timer = window.setInterval(() => {
+      if (popup.closed) {
         if (timer) {
           window.clearInterval(timer);
         }
         window.removeEventListener("message", handleMessage);
-        resolve({
-          connected: payload.connected,
-          error: payload.error,
-        });
-      };
-
-      window.addEventListener("message", handleMessage);
-
-      timer = window.setInterval(() => {
-        if (popup.closed) {
-          if (timer) {
-            window.clearInterval(timer);
-          }
-          window.removeEventListener("message", handleMessage);
-          resolve({});
-        }
-      }, 500);
-    }
-  );
+        resolve({});
+      }
+    }, 500);
+  });
 
   if (!popup.closed) {
     popup.close();
