@@ -351,11 +351,54 @@ function handleWebflowOAuthCallback() {
 
     // Load connections (which will also load sites)
     loadWebflowConnections();
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: true,
+        setup: webflowSetup === "true",
+        integration: "webflow",
+        connectionId,
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection message to opener",
+          error
+        );
+      }
+
+      window.setTimeout(() => {
+        window.close();
+      }, 150);
+    }
   } else if (webflowError) {
     showWebflowError(`Failed to connect Webflow: ${webflowError}`);
     const url = new URL(window.location.href);
     url.searchParams.delete("webflow_error");
     window.history.replaceState({}, "", url.toString());
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: false,
+        error: webflowError,
+        integration: "webflow",
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection error to opener",
+          error
+        );
+      }
+    }
   }
 }
 

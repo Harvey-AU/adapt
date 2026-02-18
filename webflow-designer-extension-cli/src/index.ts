@@ -1221,17 +1221,72 @@ async function connectWebflow(): Promise<void> {
     return;
   }
 
-  await new Promise((resolve) => {
-    const timer = window.setInterval(() => {
-      if (popup.closed) {
-        window.clearInterval(timer);
-        resolve(undefined);
-      }
-    }, 500);
-  });
+  const popupResult = await new Promise<{ connected?: boolean; error?: string }>(
+    (resolve) => {
+      let timer: number | undefined;
+      const origin = new URL(state.apiBaseUrl).origin;
+      const handleMessage = (event: MessageEvent) => {
+        if (event.source !== popup || event.origin !== origin) {
+          return;
+        }
+
+        const payload = event.data as {
+          source?: string;
+          type?: string;
+          connected?: boolean;
+          error?: string;
+        };
+
+        if (
+          payload?.source !== "bbb-webflow-connect" ||
+          payload.type !== "webflow-connect-complete"
+        ) {
+          return;
+        }
+
+        if (timer) {
+          window.clearInterval(timer);
+        }
+        window.removeEventListener("message", handleMessage);
+        resolve({
+          connected: payload.connected,
+          error: payload.error,
+        });
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      timer = window.setInterval(() => {
+        if (popup.closed) {
+          if (timer) {
+            window.clearInterval(timer);
+          }
+          window.removeEventListener("message", handleMessage);
+          resolve({});
+        }
+      }, 500);
+    }
+  );
+
+  if (!popup.closed) {
+    popup.close();
+  }
 
   setStatus("Webflow connection flow complete.", "Refreshing connections.");
   await refreshDashboard();
+
+  if (popupResult?.connected) {
+    try {
+      await setWebflowAutoPublish(true);
+    } catch (error) {
+      console.warn("Unable to enable run on publish automatically:", error);
+    }
+    return;
+  }
+
+  if (popupResult?.error) {
+    setStatus("Webflow connect failed.", popupResult.error);
+  }
 }
 
 function initEventHandlers(): void {
