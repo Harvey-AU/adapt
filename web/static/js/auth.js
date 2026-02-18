@@ -275,6 +275,18 @@ function initialiseSupabase() {
  * Load shared authentication modal HTML
  */
 async function loadAuthModal() {
+  const modalTarget = document.getElementById("authModalContainer");
+  if (!modalTarget) {
+    const error = new Error("Auth modal container missing");
+    console.error("Failed to load auth modal:", error);
+    if (window.Sentry) {
+      window.Sentry.captureException(error, {
+        tags: { component: "auth", action: "load_modal" },
+      });
+    }
+    return false;
+  }
+
   try {
     const response = await fetch("/auth-modal.html", { cache: "no-store" });
 
@@ -285,7 +297,7 @@ async function loadAuthModal() {
     }
 
     const modalHTML = await response.text();
-    document.getElementById("authModalContainer").innerHTML = modalHTML;
+    modalTarget.innerHTML = modalHTML;
 
     // Set default to login form for dashboard
     setTimeout(() => {
@@ -300,8 +312,18 @@ async function loadAuthModal() {
         tags: { component: "auth", action: "load_modal" },
       });
     }
-    throw error;
+    modalTarget.innerHTML = `
+      <div class="bb-modal show" role="dialog" aria-live="assertive" aria-label="Sign in is unavailable">
+        <div class="bb-modal-content">
+          <p>Sign-in is currently unavailable. Please refresh the page and try again.</p>
+          <button type="button" class="bb-button bb-button-primary" onclick="window.location.reload()">Retry</button>
+        </div>
+      </div>
+    `;
+    return false;
   }
+
+  return true;
 }
 
 function waitForAuthScript(pollIntervalMs = 50, timeoutMs = 12000) {
