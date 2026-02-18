@@ -140,6 +140,7 @@ type AuthMessage = {
   source?: string;
   type?: string;
   state?: string;
+  extensionState?: string;
   accessToken?: string;
 };
 
@@ -542,13 +543,11 @@ async function connectAccount(): Promise<string | null> {
         }
 
         const payload = event.data as AuthMessage;
-        const isAuthSuccessFromPopup = Boolean(
-          payload?.type === "success" && payload?.accessToken
-        );
+        const payloadState = payload?.state || payload?.extensionState;
 
         if (
           payload?.source !== "bbb-extension-auth" ||
-          (payload.state !== stateToken && !isAuthSuccessFromPopup)
+          payloadState !== stateToken
         ) {
           console.warn(
             "extension auth: ignoring popup message (state mismatch)",

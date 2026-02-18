@@ -2092,7 +2092,7 @@ function isValidExtensionTargetOrigin(rawOrigin) {
     }
 
     // Allow explicit deploy preview URLs and staging hosts used by the adapter.
-    return host.endsWith(".fly.dev") || Boolean(parsed.hostname);
+    return host.endsWith(".fly.dev");
   } catch (_error) {
     return false;
   }
