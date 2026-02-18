@@ -946,8 +946,14 @@ async function findConnectedWebflowSite(): Promise<WebflowSiteSetting | null> {
 }
 
 async function setWebflowAutoPublish(enabled: boolean): Promise<void> {
+  // Optimistically update UI before the network round-trip.
+  state.webflowAutoPublishEnabled = enabled;
+  renderWebflowStatus(state.webflowConnected);
+
   const siteSetting = await findConnectedWebflowSite();
   if (!siteSetting) {
+    state.webflowAutoPublishEnabled = false;
+    renderWebflowStatus(state.webflowConnected);
     setStatus("Connect Webflow and select this site, then try again.", "");
     return;
   }
@@ -960,15 +966,23 @@ async function setWebflowAutoPublish(enabled: boolean): Promise<void> {
     enabled,
   };
 
-  await apiRequest<WebflowSiteSetting>(
-    `/v1/integrations/webflow/sites/${siteSetting.webflow_site_id}/auto-publish`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  );
+  try {
+    await apiRequest<WebflowSiteSetting>(
+      `/v1/integrations/webflow/sites/${siteSetting.webflow_site_id}/auto-publish`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+  } catch (error) {
+    // Revert on failure.
+    state.webflowAutoPublishEnabled = !enabled;
+    renderWebflowStatus(state.webflowConnected);
+    throw error;
+  }
 
+  // Re-apply after findConnectedWebflowSite may have overwritten state.
   state.webflowAutoPublishEnabled = enabled;
   renderWebflowStatus(state.webflowConnected);
 
