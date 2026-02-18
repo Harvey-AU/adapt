@@ -2,7 +2,7 @@ const API_BASE_STORAGE_KEY = "bbb_extension_api_base";
 const API_TOKEN_STORAGE_KEY = "bbb_extension_api_token_session";
 const AUTH_POPUP_WIDTH = 520;
 const AUTH_POPUP_HEIGHT = 760;
-const DEFAULT_BBB_APP_ORIGIN = "https://adapt.app.goodnative.co";
+const DEFAULT_BBB_APP_ORIGIN = "https://adapt-pr-255.fly.dev";
 const AUTH_POPUP_NAME = "bbbExtensionAuth";
 const SCHEDULE_PLACEHOLDER = "";
 const SCHEDULE_OPTIONS = ["off", "6", "12", "24", "48"] as const;
@@ -968,6 +968,9 @@ async function setWebflowAutoPublish(enabled: boolean): Promise<void> {
       body: JSON.stringify(payload),
     }
   );
+
+  state.webflowAutoPublishEnabled = enabled;
+  renderWebflowStatus(state.webflowConnected);
 
   setStatus(
     `Auto-publish ${enabled ? "enabled" : "disabled"} for ${state.siteDomain || "this site"}`,
