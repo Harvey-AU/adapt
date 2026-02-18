@@ -343,6 +343,31 @@ func (h *Handler) fetchWebflowAuthInfo(ctx context.Context, token string) (*Webf
 	}
 	authInfo.WorkspaceIDs = workspaceIDs
 
+	// Fallback: if introspect returned no workspace IDs, try the sites API.
+	// The v2/sites response includes workspaceId on each site.
+	if len(authInfo.WorkspaceIDs) == 0 {
+		sites, err := h.fetchWebflowSites(ctx, token)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to fetch Webflow sites for workspace ID fallback")
+		} else {
+			seen := map[string]struct{}{}
+			for _, site := range sites {
+				wid := strings.TrimSpace(site.WorkspaceID)
+				if wid == "" {
+					continue
+				}
+				if _, ok := seen[wid]; ok {
+					continue
+				}
+				seen[wid] = struct{}{}
+				authInfo.WorkspaceIDs = append(authInfo.WorkspaceIDs, wid)
+			}
+			if len(authInfo.WorkspaceIDs) > 0 {
+				log.Info().Strs("workspace_ids", authInfo.WorkspaceIDs).Msg("Resolved workspace IDs from Webflow sites API fallback")
+			}
+		}
+	}
+
 	// Fetch user info from authorized_by endpoint
 	userInfo, err := h.fetchWebflowUserInfo(ctx, client, token)
 	if err != nil {

@@ -26,6 +26,7 @@ type WebflowCustomDomain struct {
 // WebflowSite represents a site from the Webflow API v2
 type WebflowSite struct {
 	ID            string                `json:"id"`
+	WorkspaceID   string                `json:"workspaceId,omitempty"`
 	DisplayName   string                `json:"displayName"`
 	ShortName     string                `json:"shortName"`
 	LastPublished string                `json:"lastPublished,omitempty"`
