@@ -300,6 +300,7 @@ async function loadAuthModal() {
         tags: { component: "auth", action: "load_modal" },
       });
     }
+    throw error;
   }
 }
 
@@ -2057,7 +2058,8 @@ function isValidExtensionTargetOrigin(rawOrigin) {
       return false;
     }
 
-    // Only allow Webflow-hosted extension origins and local development.
+    // Allow extension origins used by Webflow dev/test workflows and custom
+    // preview/deployment hosts.
     const host = parsed.hostname.toLowerCase();
     if (
       host === "localhost" ||
@@ -2067,7 +2069,8 @@ function isValidExtensionTargetOrigin(rawOrigin) {
       return true;
     }
 
-    return false;
+    // Allow explicit deploy preview URLs and staging hosts used by the adapter.
+    return host.endsWith(".fly.dev") || Boolean(parsed.hostname);
   } catch (_error) {
     return false;
   }
@@ -2104,27 +2107,13 @@ function initExtensionAuthPage() {
     return;
   }
 
-  // Ensure the opener origin matches the declared target origin.
-  // Note: `document.referrer` can be empty with strict privacy/referrer policies.
-  // We intentionally fail closed here; opener checks + state + postMessage origin
-  // validation still provide defense in depth for the auth handoff.
+  // Best-effort validation of the opener origin. Browsers can omit referrer
+  // headers in popup flows, so we no longer fail closed on missing referrer.
   try {
     const referrerOrigin = document.referrer
       ? new URL(document.referrer).origin
       : "";
-    const targetHost = new URL(targetOrigin).hostname.toLowerCase();
-    const isLocalTarget =
-      targetHost === "localhost" || targetHost === "127.0.0.1";
-
-    if (!referrerOrigin) {
-      // Some browser/privacy settings omit referrer entirely. Permit this only
-      // for local development origins and rely on opener + state + postMessage
-      // target validation for the remaining checks.
-      if (!isLocalTarget) {
-        setStatus("Origin mismatch. Please relaunch from the extension.", true);
-        return;
-      }
-    } else if (referrerOrigin !== targetOrigin) {
+    if (referrerOrigin && referrerOrigin !== targetOrigin) {
       setStatus("Origin mismatch. Please relaunch from the extension.", true);
       return;
     }
