@@ -510,7 +510,7 @@ function createAuthStateValue(): string {
 async function connectAccount(): Promise<string | null> {
   const authBase = new URL(state.apiBaseUrl);
   const stateToken = createAuthStateValue();
-  const authUrl = `${state.apiBaseUrl}/extension-auth.html?origin=${encodeURIComponent(window.location.origin)}&state=${encodeURIComponent(stateToken)}`;
+  const authUrl = `${state.apiBaseUrl}/extension-auth.html?origin=${encodeURIComponent(window.location.origin)}&extension_state=${encodeURIComponent(stateToken)}&state=${encodeURIComponent(stateToken)}`;
   const popupPosition = getPopupPosition();
   const popupFeatures = `width=${AUTH_POPUP_WIDTH},height=${AUTH_POPUP_HEIGHT},left=${popupPosition.left},top=${popupPosition.top},resizable=yes,scrollbars=yes`;
 
@@ -534,15 +534,30 @@ async function connectAccount(): Promise<string | null> {
       let closedTimer: number | undefined;
 
       const onMessage = (event: MessageEvent) => {
+        if (event.source !== popup) {
+          return;
+        }
         if (event.origin !== authBase.origin || event.source === null) {
           return;
         }
 
         const payload = event.data as AuthMessage;
+        const isAuthSuccessFromPopup = Boolean(
+          payload?.type === "success" && payload?.accessToken
+        );
+
         if (
           payload?.source !== "bbb-extension-auth" ||
-          payload.state !== stateToken
+          (payload.state !== stateToken && !isAuthSuccessFromPopup)
         ) {
+          console.warn(
+            "extension auth: ignoring popup message (state mismatch)",
+            {
+              expected: stateToken,
+              received: payload?.state,
+              type: payload?.type,
+            }
+          );
           return;
         }
 

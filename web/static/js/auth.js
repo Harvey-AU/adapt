@@ -2079,7 +2079,8 @@ function isValidExtensionTargetOrigin(rawOrigin) {
 function initExtensionAuthPage() {
   const params = new URLSearchParams(window.location.search);
   const targetOrigin = params.get("origin") || "";
-  const state = params.get("state") || "";
+  const extensionState =
+    params.get("extension_state") || params.get("state") || "";
   const statusEl = document.getElementById("extensionAuthStatus");
   const modalContainer = document.getElementById("authModalContainer");
   const reopenButton = document.getElementById("reopenModalBtn");
@@ -2132,7 +2133,8 @@ function initExtensionAuthPage() {
       window.opener.postMessage(
         {
           source: "bbb-extension-auth",
-          state,
+          state: extensionState,
+          extensionState,
           ...message,
         },
         targetOrigin
@@ -2162,12 +2164,13 @@ function initExtensionAuthPage() {
 
     const registered = await registerUserWithBackend(session.user);
     if (!registered) {
-      throw new Error("Account setup failed. Please retry.");
+      console.warn("Account setup could not be completed; continuing sign-in");
     }
 
     const posted = postAuthMessage({
       type: "success",
       accessToken: session.access_token,
+      registered,
       user: {
         id: session.user.id,
         email: session.user.email || "",
