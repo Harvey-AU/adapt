@@ -28,6 +28,38 @@ On merge, CI will:
 
 ## [Unreleased]
 
+### Added
+
+- **Webflow Designer extension auth flow**: Added dedicated popup auth handoff
+  path and message contract for returning Supabase session tokens to the
+  extension after sign-in.
+- **Review app environment wiring**: Added `WEBFLOW_REDIRECT_URI` handling and
+  updated preview app workflow config so webflow OAuth callback URLs are wired
+  in CI/deploy flows.
+- **UI/extension config updates**: Extended local extension manifest/build
+  artifacts and widget UI styling/assets for the Webflow Designer embed.
+
+### Changed
+
+- **Webflow publish behavior**: Switched run-on-publish enabling to occur only
+  when a Webflow site connection is completed; removed auto-enable behavior on
+  first scan/load.
+- **Auth page resilience**: Made extension auth modal load failures non-blocking
+  so the app remains usable even when auth assets are delayed.
+- **Auth handoff validation**: Hardened popup origin checks and request handling
+  to avoid false failures in cross-origin postMessage exchange.
+
+### Fixed
+
+- **Extension popup/auth reliability**: Fixed token handoff edge cases where
+  sign-in returns were dropped or malformed due to load timing and origin
+  mismatches.
+- **Webflow connection payload handling**: Corrected payload structure used for
+  Webflow connect requests and added fallback behavior when a workspace is not
+  explicitly selected.
+- **Config consistency**: Added environment key examples and backend override
+  support for custom Supabase auth endpoint use.
+
 ## [0.26.6] – 2026-02-14
 
 ### Fixed
