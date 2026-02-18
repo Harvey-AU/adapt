@@ -975,6 +975,14 @@ async function setWebflowAutoPublish(enabled: boolean): Promise<void> {
   );
 }
 
+async function tryEnableRunOnPublishForCurrentSite(): Promise<void> {
+  try {
+    await setWebflowAutoPublish(true);
+  } catch (error) {
+    console.warn("Unable to auto-enable run-on-publish:", error);
+  }
+}
+
 async function setJobSchedule(value: ScheduleOption): Promise<void> {
   if (!state.token || !state.siteDomain) {
     return;
@@ -1049,6 +1057,8 @@ async function runScanForCurrentSite(): Promise<void> {
     );
     return;
   }
+
+  await tryEnableRunOnPublishForCurrentSite();
 
   const request: CreateJobRequest = {
     domain: state.siteDomain,
@@ -1276,11 +1286,6 @@ async function connectWebflow(): Promise<void> {
   await refreshDashboard();
 
   if (popupResult?.connected) {
-    try {
-      await setWebflowAutoPublish(true);
-    } catch (error) {
-      console.warn("Unable to enable run on publish automatically:", error);
-    }
     return;
   }
 

@@ -568,6 +568,29 @@ function renderWebflowSites(page = 1) {
       autoPublishToggle.addEventListener("change", handleAutoPublishToggle);
     }
 
+    if (
+      webflowSitesState.connectionId &&
+      site.schedule_interval_hours &&
+      !site.auto_publish_enabled
+    ) {
+      const siteId = site.webflow_site_id;
+      const connectionId = webflowSitesState.connectionId;
+      void setWebflowAutoPublishForSite(siteId, connectionId, true)
+        .then(() => {
+          site.auto_publish_enabled = true;
+          if (autoPublishToggle) {
+            autoPublishToggle.checked = true;
+          }
+        })
+        .catch((error) => {
+          console.warn(
+            "Auto-enable run-on-publish on load failed:",
+            siteId,
+            error
+          );
+        });
+    }
+
     listEl.appendChild(clone);
   }
 
@@ -634,6 +657,30 @@ async function handleScheduleChange(event) {
       site.schedule_interval_hours = interval;
     }
 
+    if (interval) {
+      let autoPublishEnabled = false;
+      try {
+        await setWebflowAutoPublishForSite(siteId, connectionId, true);
+        autoPublishEnabled = true;
+      } catch (autoPublishError) {
+        console.error(
+          "Failed to auto-enable run-on-publish:",
+          autoPublishError
+        );
+        showWebflowError(
+          "Schedule saved, but run-on-publish could not be enabled automatically."
+        );
+      }
+      if (site) {
+        site.auto_publish_enabled = autoPublishEnabled;
+      }
+      const row = select.closest(".webflow-site-row");
+      const rowToggle = row?.querySelector(".site-autopublish");
+      if (rowToggle) {
+        rowToggle.checked = autoPublishEnabled;
+      }
+    }
+
     // Brief visual feedback
     select.style.borderColor = "#10b981";
     setTimeout(() => {
@@ -651,6 +698,34 @@ async function handleScheduleChange(event) {
     }
   } finally {
     select.disabled = false;
+  }
+}
+
+async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
+  const { data: { session } = {} } = await window.supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    throw new Error("Not authenticated. Please sign in.");
+  }
+
+  const response = await fetch(
+    `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        connection_id: connectionId,
+        enabled,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `HTTP ${response.status}`);
   }
 }
 
