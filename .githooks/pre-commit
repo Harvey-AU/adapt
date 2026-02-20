@@ -218,6 +218,17 @@ if [ -n "$STAGED_EXTENSION_FILES" ]; then
         # Re-stage any extension files changed by the formatter.
         echo "$STAGED_EXTENSION_FILES" | xargs git add
         FILES_FORMATTED=true
+
+        # Run a formatting check for visibility; this is informational only
+        # because formatting was already applied above.
+        (
+          cd webflow-designer-extension-cli
+          if npm run format:check; then
+            echo -e "${GREEN}  ✅ Extension format check passed${NC}"
+          else
+            echo -e "${YELLOW}  ⚠️  Extension format check reported differences${NC}"
+          fi
+        )
     else
         echo -e "${YELLOW}⚠️  npm is not available or extension package is missing; skipping extension formatting${NC}"
     fi
