@@ -372,9 +372,13 @@ async function initSupabaseClient(): Promise<SupabaseClient | null> {
     return null;
   }
 
-  supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  supabaseClient = supabase.createClient(
+    config.supabaseUrl,
+    config.supabaseAnonKey,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    }
+  );
 
   // Set the session using the JWT we already have from extension auth.
   // No refresh token available — the extension auth flow only returns the access token.
@@ -557,12 +561,15 @@ function throttledRealtimeRefresh(): void {
   // Schedule a refresh when the throttle window expires.
   if (!throttleTimeoutId && !isRealtimeRefreshing) {
     const delay = REALTIME_DEBOUNCE_MS - timeSinceLastRefresh;
-    throttleTimeoutId = window.setTimeout(() => {
-      throttleTimeoutId = null;
-      if (!isRealtimeRefreshing) {
-        void realtimeRefresh();
-      }
-    }, Math.max(delay, 100));
+    throttleTimeoutId = window.setTimeout(
+      () => {
+        throttleTimeoutId = null;
+        if (!isRealtimeRefreshing) {
+          void realtimeRefresh();
+        }
+      },
+      Math.max(delay, 100)
+    );
   }
 }
 
@@ -997,13 +1004,14 @@ function renderIssuePillsInto(
 
   if (brokenLinks > 0) {
     container.appendChild(
-      makePill("dot-danger", `${brokenLinks} broken link${brokenLinks !== 1 ? "s" : ""}`)
+      makePill(
+        "dot-danger",
+        `${brokenLinks} broken link${brokenLinks !== 1 ? "s" : ""}`
+      )
     );
   }
   if (verySlow > 0) {
-    container.appendChild(
-      makePill("dot-danger", `${verySlow} very slow`)
-    );
+    container.appendChild(makePill("dot-danger", `${verySlow} very slow`));
   }
   if (slow > 0) {
     container.appendChild(makePill("dot-warn", `${slow} slow`));
@@ -1033,8 +1041,18 @@ function formatShortDate(value?: string): string {
 
   const day = d.getDate();
   const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
   const month = months[d.getMonth()];
   const hours = d.getHours();
@@ -1269,10 +1287,7 @@ function renderIssuesTable(
     slow: ["URL", "Response time"],
   };
 
-  const [col1Label, col2Label] = columnLabels[tabKey] || [
-    "URL",
-    "Details",
-  ];
+  const [col1Label, col2Label] = columnLabels[tabKey] || ["URL", "Details"];
 
   // Placeholder data — TODO: replace with real task data from API
   const placeholderRows: [string, string][] =
