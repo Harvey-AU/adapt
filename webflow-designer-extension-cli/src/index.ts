@@ -1,4 +1,3 @@
-/* global supabase — loaded via CDN <script> in index.html */
 declare const supabase: {
   createClient: (
     url: string,
@@ -441,22 +440,6 @@ function normalizeDomain(input: string): string {
   return trimmed.split("/")[0] || trimmed;
 }
 
-function statusClassForJob(status: string): string {
-  if (status === "completed") {
-    return "status-dot-success";
-  }
-
-  if (
-    status === "running" ||
-    status === "initializing" ||
-    status === "pending"
-  ) {
-    return "status-dot-warning";
-  }
-
-  return "status-dot-danger";
-}
-
 function statusLabelForJob(status: string): string {
   if (status === "completed") {
     return "DONE";
@@ -612,7 +595,7 @@ function cleanupRealtimeSubscription(): void {
   clearFallbackPolling();
 
   if (jobsChannel && supabaseClient) {
-    supabaseClient.removeChannel(jobsChannel);
+    void supabaseClient.removeChannel(jobsChannel);
     jobsChannel = null;
   }
 
@@ -742,19 +725,6 @@ async function refreshCurrentJob(): Promise<void> {
   } finally {
     jobPollInFlight = false;
   }
-}
-
-function formatDate(value?: string): string {
-  if (!value) {
-    return "";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return parsed.toLocaleString();
 }
 
 function parseApiResponse<T>(response: Response): Promise<T> {
@@ -1873,15 +1843,6 @@ async function runScanForCurrentSite(): Promise<void> {
   startJobStatusPolling();
   setStatus("Scan started.", "Use Run again to requeue a fresh run.");
   await refreshDashboard();
-}
-
-async function exportCurrentJob(): Promise<void> {
-  if (!state.currentJob) {
-    setStatus("No current job to export.", "Run a scan first.");
-    return;
-  }
-
-  await exportJob(state.currentJob.id);
 }
 
 function handleAuthError(error: unknown): void {

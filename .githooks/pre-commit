@@ -178,6 +178,28 @@ else
     echo "  ℹ️  No Go files to lint"
 fi
 
+# === LINT Webflow extension (TypeScript) ===
+echo ""
+echo "🧩 Linting Webflow extension files..."
+
+STAGED_EXTENSION_TS=$(git diff --cached --name-only --diff-filter=ACM | grep '^webflow-designer-extension-cli/.*\.ts$' || true)
+
+if [ -n "$STAGED_EXTENSION_TS" ]; then
+    echo "Found extension TypeScript files to lint:"
+    echo "$STAGED_EXTENSION_TS"
+
+    if [ -f "webflow-designer-extension-cli/package.json" ] && command -v npm > /dev/null 2>&1; then
+        (
+          cd webflow-designer-extension-cli
+          npm run lint
+        )
+    else
+        echo -e "${YELLOW}⚠️  npm is not available or extension package is missing; skipping extension lint${NC}"
+    fi
+else
+    echo "  ℹ️  No extension TypeScript files to lint"
+fi
+
 # === FORMAT DOCS/CONFIG FILES ===
 echo ""
 echo "📝 Formatting docs and config files..."
