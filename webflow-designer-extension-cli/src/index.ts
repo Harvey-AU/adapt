@@ -50,6 +50,13 @@ const APP_ROUTES = {
   changePlan: "/settings/plans",
   manageTeam: "/settings/team",
 } as const;
+const AUTHENTICATED_EXTENSION_SIZE = { width: 450, height: 500 } as const;
+type ExtensionPanelSize =
+  | "default"
+  | "compact"
+  | "comfortable"
+  | "large"
+  | { width: number; height: number };
 const ACTIVE_JOB_STATUSES = new Set<string>([
   "pending",
   "queued",
@@ -75,6 +82,7 @@ declare const webflow: {
       stage: "staging" | "production";
     }>;
   }>;
+  setExtensionSize: (size: ExtensionPanelSize) => Promise<null>;
 };
 
 type ScheduleOption = (typeof SCHEDULE_OPTIONS)[number] | "";
@@ -921,15 +929,27 @@ function setStatus(message: string, detail = "") {
   setText(ui.detailText, detail);
 }
 
+async function setExtensionSizeForAuthState(isAuthed: boolean): Promise<void> {
+  try {
+    await webflow.setExtensionSize(
+      isAuthed ? AUTHENTICATED_EXTENSION_SIZE : "default"
+    );
+  } catch (error) {
+    console.warn("Unable to set extension size", error);
+  }
+}
+
 function renderAuthState(isAuthed: boolean): void {
   if (isAuthed) {
     hide(asNode(ui.unauthState));
     show(asNode(ui.authState));
+    void setExtensionSizeForAuthState(true);
     return;
   }
 
   show(asNode(ui.unauthState));
   hide(asNode(ui.authState));
+  void setExtensionSizeForAuthState(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -1449,11 +1469,11 @@ function renderUsage(usage: UsageStats | null): void {
   const limit = usage.daily_limit.toLocaleString();
 
   if (ui.planNameText) {
-    ui.planNameText.innerHTML = `<strong>Plan:</strong> <strong>${plan}</strong> (${limit} pages / day)`;
+    ui.planNameText.innerHTML = `<strong>Plan:</strong> <strong>${plan}</strong> (${limit} / day)`;
   }
 
   const remaining = usage.daily_remaining.toLocaleString();
-  setText(ui.planRemainingValue, `${remaining} pages remaining`);
+  setText(ui.planRemainingValue, `${remaining} remaining`);
 }
 
 function renderOrganisations() {
