@@ -33,7 +33,7 @@
   --spacing--8xl: 28px;
 
   /* Primitive sizes */
-  --size--scrollbar: 5px;
+  --size--scrollbar: 7px;
   --size--icon-small: 16px;
   --size--avatar: 30px;
   --size--dot-small: 6px;
@@ -75,7 +75,7 @@
   --colour--neutral-300: #b1b1b1;
   --colour--neutral-700: #434343;
   --colour--neutral-750: #1c3227;
-  --colour--neutral-800: #353535;
+  --colour--neutral-800: #0a081b;
   --colour--neutral-850: #49552d;
   --colour--neutral-900: #0e251a;
   --colour--status-success: #22c55e;
@@ -546,12 +546,13 @@ select {
 
 .content-scroll {
   flex: 1;
+  background-color: var(--colour--neutral-800);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--spacing--3xl);
   border-radius: var(--radius--control);
-  padding-right: calc(var(--size--scrollbar) / 2);
+  padding-right: calc(var(--size--scrollbar));
 }
 
 /* ─── Dots (status indicators) ───────────────────────────────────────────── */
