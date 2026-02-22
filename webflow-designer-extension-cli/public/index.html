@@ -41,65 +41,95 @@
       <!-- ═══ AUTH STATE ═══ -->
       <section class="panel hidden" id="authState">
         <!-- ─── Top bar: org + plan + settings ─── -->
-        <header class="topbar">
-          <div class="topbar-left">
-            <select id="orgSelect" class="org-dropdown"></select>
-            <div class="plan-badge">
-              <p class="plan-badge-title" id="planNameText">
-                <strong>Plan:</strong> —
-              </p>
-              <p class="plan-badge-remaining" id="planRemainingText">
-                <span class="dot dot-success"></span>
-                <span id="planRemainingValue">—</span>
-              </p>
-            </div>
-            <!-- TODO: wire up settings gear to open settings page -->
-            <button
-              id="settingsButton"
-              type="button"
-              class="icon-btn"
-              title="Settings"
-            >
-              &#9881;
-            </button>
-          </div>
+        <header class="topbar section">
           <!-- TODO: placeholder avatar / dark-mode toggle -->
           <div class="topbar-avatar" id="avatarPlaceholder"></div>
+          <div class="topbar-left">
+            <select id="orgSelect" class="btn-secondary"></select>
+            <div class="topbar-plan">
+              <div class="plan-badge">
+                <p class="plan-badge-title" id="planNameText">
+                  <strong>Plan:</strong> —
+                </p>
+                <p class="plan-badge-remaining" id="planRemainingText">
+                  <span class="dot dot-success"></span>
+                  <span id="planRemainingValue">—</span>
+                </p>
+              </div>
+              <!-- TODO: wire up settings gear to open settings page -->
+              <button
+                id="settingsButton"
+                type="button"
+                class="icon-btn"
+                title="Settings"
+              >
+                &#9881;
+              </button>
+            </div>
+          </div>
         </header>
 
         <!-- ─── Action bar: run + schedule + auto-publish ─── -->
-        <div class="action-bar">
-          <button id="runNowButton" type="button" class="btn-run">
-            Run now &rarr;
+        <div class="action-bar section">
+          <button id="runNowButton" type="button" class="btn-primary">
+            Run now
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g clip-path="url(#clip0_4104_48093)">
+                <path
+                  d="M7.5 8.5V13.5H8.5V8.5H13.5V7.5H8.5V2.5H7.5V7.5H2.5V8.5H7.5Z"
+                  fill="white"
+                  fill-opacity="0.67"
+                ></path>
+              </g>
+              <defs>
+                <clipPath id="clip0_4104_48093">
+                  <path
+                    d="M0 2C0 0.895431 0.895431 0 2 0H14C15.1046 0 16 0.895431 16 2V14C16 15.1046 15.1046 16 14 16H2C0.895431 16 0 15.1046 0 14V2Z"
+                    fill="white"
+                  ></path>
+                </clipPath>
+              </defs>
+            </svg>
           </button>
-          <select id="scheduleSelect" class="schedule-dropdown">
-            <option value="" selected disabled hidden>Schedule</option>
-            <option value="off">Off</option>
-            <option value="6">Run every 6 hrs</option>
-            <option value="12">Run every 12 hrs</option>
-            <option value="24">Run every 24 hrs</option>
-            <option value="48">Run every 48 hrs</option>
-          </select>
+          <div class="display-flex">
+            <label for="scheduleSelect">Run every:</label>
+            <select id="scheduleSelect" class="btn-secondary">
+              <option value="off">Off</option>
+              <option value="6">6 hrs</option>
+              <option value="12">12 hrs</option>
+              <option value="24">24 hrs</option>
+              <option value="48">48 hrs</option>
+            </select>
+          </div>
           <div class="auto-publish-control">
-            <span class="auto-publish-label">Auto-run on publish</span>
+            <span class="auto-publish-label">Run on publish</span>
             <input id="runPublishToggle" type="checkbox" class="toggle" />
           </div>
         </div>
 
         <!-- ─── Status messages ─── -->
-        <div class="status-block">
-          <p id="statusText" class="status"></p>
-          <p id="detailText" class="detail"></p>
+        <div class="status-block section">
+          <div class="status-content">
+            <p id="statusText" class="status"></p>
+            <p id="detailText" class="detail"></p>
+          </div>
         </div>
 
         <!-- ─── Scrollable content area ─── -->
-        <div class="content-scroll">
+        <div class="content-scroll section">
+          <p id="jobSectionHeading" class="section-heading">In progress</p>
           <!-- Active / current job card -->
-          <div id="jobSection" class="job-card">
-            <div class="job-card-header">
-              <div class="job-status-left">
-                <span id="jobStatusIcon" class="dot dot-neutral"></span>
-                <span id="jobStatusLabel" class="job-status-label"
+          <div id="jobSection" class="result-card">
+            <div class="result-card-header">
+              <div class="result-status-left">
+                <span id="jobStatusIcon" class="job-status-icon"></span>
+                <span id="jobStatusLabel" class="result-status-label"
                   >Loading&hellip;</span
                 >
               </div>
@@ -126,14 +156,14 @@
           <!-- No job placeholder -->
           <div id="noJobState" class="no-job-state hidden">
             <p class="detail">No runs yet for this site.</p>
-            <button id="checkSiteAuthButton" type="button" class="btn-run">
+            <button id="checkSiteAuthButton" type="button" class="btn-primary">
               CHECK SITE
             </button>
           </div>
 
           <!-- ─── Recent results ─── -->
           <div class="results-section">
-            <p class="results-heading">Recent results</p>
+            <p class="section-heading">Completed</p>
             <div id="recentResultsList" class="results-list">
               <!-- Populated by JS — each child is a .result-card -->
             </div>
@@ -148,7 +178,7 @@
         </div>
 
         <!-- ─── Footer ─── -->
-        <footer class="panel-footer">
+        <footer class="panel-footer section">
           <button id="feedbackButton" type="button" class="footer-link">
             <!-- Chat bubble icon (SVG inline) -->
             <svg

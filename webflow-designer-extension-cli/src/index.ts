@@ -34,7 +34,7 @@ const AUTH_POPUP_WIDTH = 520;
 const AUTH_POPUP_HEIGHT = 760;
 const DEFAULT_BBB_APP_ORIGIN = "https://adapt-pr-255.fly.dev";
 const AUTH_POPUP_NAME = "bbbExtensionAuth";
-const SCHEDULE_PLACEHOLDER = "";
+const SCHEDULE_PLACEHOLDER = "off";
 const SCHEDULE_OPTIONS = ["off", "6", "12", "24", "48"] as const;
 const JOB_POLLING_INTERVAL_MS = 6000;
 
@@ -213,6 +213,7 @@ function extractErrorMessage(rawBody?: string): string {
 
 const ui = {
   // Status messages
+  statusBlock: document.querySelector(".status-block"),
   statusText: document.getElementById("statusText"),
   detailText: document.getElementById("detailText"),
 
@@ -292,6 +293,7 @@ const state: ExtensionState = {
   webflowAutoPublishEnabled: false,
 };
 
+let statusToastTimer: ReturnType<typeof setTimeout> | null = null;
 let jobStatusPoller: number | null = null;
 let jobPollInFlight = false;
 
@@ -454,22 +456,22 @@ function normalizeDomain(input: string): string {
 
 function statusLabelForJob(status: string): string {
   if (status === "completed") {
-    return "DONE";
+    return "Done";
   }
 
   if (status === "running" || status === "initializing") {
-    return "IN PROGRESS";
+    return "In progress";
   }
 
   if (status === "pending") {
-    return "QUEUED";
+    return "Starting up";
   }
 
   if (status === "cancelled") {
-    return "CANCELLED";
+    return "Cancelled";
   }
 
-  return "ERROR";
+  return "Error";
 }
 
 function normalizeJobStatus(status: string): string {
@@ -925,8 +927,28 @@ async function ensureSignedIn(): Promise<boolean> {
 }
 
 function setStatus(message: string, detail = "") {
+  // Cancel any in-flight toast and reset opacity immediately.
+  if (statusToastTimer !== null) {
+    clearTimeout(statusToastTimer);
+    statusToastTimer = null;
+  }
+  ui.statusBlock?.classList.remove("status-block--fading");
+
   setText(ui.statusText, message);
   setText(ui.detailText, detail);
+
+  // Auto-dismiss non-empty toasts: fade at 3 s, clear at 3.5 s.
+  if (message || detail) {
+    statusToastTimer = setTimeout(() => {
+      ui.statusBlock?.classList.add("status-block--fading");
+      statusToastTimer = setTimeout(() => {
+        setText(ui.statusText, "");
+        setText(ui.detailText, "");
+        ui.statusBlock?.classList.remove("status-block--fading");
+        statusToastTimer = null;
+      }, 500);
+    }, 3000);
+  }
 }
 
 async function setExtensionSizeForAuthState(isAuthed: boolean): Promise<void> {
@@ -956,20 +978,18 @@ function renderAuthState(isAuthed: boolean): void {
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
-function dotClassForJob(status: string): string {
+function iconClassForJob(status: string): string {
+  const base = "job-status-icon";
   if (status === "completed") {
-    return "dot dot-success";
+    return `${base} ${base}--completed`;
   }
-
-  if (
-    status === "running" ||
-    status === "initializing" ||
-    status === "pending"
-  ) {
-    return "dot dot-warn-ring";
+  if (status === "running" || status === "initializing") {
+    return `${base} ${base}--running`;
   }
-
-  return "dot dot-danger";
+  if (status === "pending" || status === "queued") {
+    return `${base} ${base}--pending`;
+  }
+  return `${base} ${base}--error`;
 }
 
 /** Show the in-progress card only for active jobs; hide for completed/none. */
@@ -986,7 +1006,7 @@ function renderJobState(job: JobItem | null): void {
 
   // Status dot
   if (ui.jobStatusIcon) {
-    ui.jobStatusIcon.className = dotClassForJob(job.status);
+    ui.jobStatusIcon.className = iconClassForJob(job.status);
   }
 
   // Status label
