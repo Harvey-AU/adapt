@@ -1,6 +1,6 @@
 ---
 name: security-auditor
-description: Use for secret handling, authorization, and permission-sensitive review.
+description: Use for secret handling, authorisation, and permission-sensitive review.
 metadata:
   platform: codex
   category: security

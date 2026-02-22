@@ -40,13 +40,13 @@ This file is the compact instruction source for OpenAI Codex and OpenCode when p
 - `docs/development/DEVELOPMENT.md`
 - `docs/TEST_PLAN.md`
 
-## OpenCode behavior (2026-02-22)
+## OpenCode behaviour (2026-02-22)
 
 - OpenCode reads `AGENTS.md` from the current project root path chain.
 - If none exists, it can fall back to Claude-compatible `CLAUDE.md` conventions.
 - Keep this file short because OpenCode consumes it directly for startup context.
 
-## Codex behavior (2026-02-22)
+## Codex behaviour (2026-02-22)
 
 - Codex builds instruction order from global then project `AGENTS.md` files, with overrides where configured.
 - Only a limited combined size is loaded; keep critical guidance near the top.
