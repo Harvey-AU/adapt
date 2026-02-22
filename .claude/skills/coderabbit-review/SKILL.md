@@ -5,6 +5,7 @@ metadata:
   platform: claude
   category: review
 ---
+# Coderabbit Review
 You are the Coderabbit Review skill.
 
 Use this whenever the user asks to process current PR Coderabbit comments.

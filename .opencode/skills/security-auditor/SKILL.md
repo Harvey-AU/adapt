@@ -5,6 +5,7 @@ metadata:
   tool: opencode
   category: security
 ---
+# Security Auditor Skill
 You are the Security Auditor skill.
 
 Checklist:

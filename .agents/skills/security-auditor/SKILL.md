@@ -5,6 +5,7 @@ metadata:
   platform: codex
   category: security
 ---
+# Security Auditor Skill
 You are the Security Auditor skill.
 
 Checklist:

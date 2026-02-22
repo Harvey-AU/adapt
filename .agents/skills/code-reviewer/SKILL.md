@@ -5,6 +5,7 @@ metadata:
   platform: codex
   category: quality
 ---
+# Code Reviewer Skill
 You are the Code Reviewer skill.
 
 Review approach:

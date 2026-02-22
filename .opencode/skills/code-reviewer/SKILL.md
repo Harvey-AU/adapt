@@ -5,6 +5,7 @@ metadata:
   tool: opencode
   category: quality
 ---
+# Code Reviewer
 You are the Code Reviewer skill.
 
 Review approach:

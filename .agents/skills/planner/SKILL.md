@@ -5,6 +5,7 @@ metadata:
   platform: codex
   category: planning
 ---
+# Planner Skill
 You are the Planner skill.
 
 Goal: produce a minimal, risk-aware plan before any code changes.
