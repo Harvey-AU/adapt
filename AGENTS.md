@@ -56,5 +56,10 @@ This file is the compact instruction source for OpenAI Codex and OpenCode when p
 
 - OpenCode: `.opencode/skills/<skill-name>/SKILL.md`
 - Codex: `.agents/skills/<skill-name>/SKILL.md`
+- Claude-compatible skill fallback: `.claude/skills/<skill-name>/SKILL.md`
+
+Available review skill in this repo:
+
+- `coderabbit-review` (single-comment workflow with one commit per resolved comment, `.md` skip unless requested, PR-thread acknowledgement for skipped items).
 
 Keep this file as the first fallback, and use skills only for high-leverage workflows.

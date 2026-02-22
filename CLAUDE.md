@@ -35,6 +35,10 @@ Use these files as dedicated specialists to reduce context pollution:
 - `.claude/agents/code-reviewer.md`
 - `.claude/agents/security-auditor.md`
 
+Coderabbit review support:
+
+- Open a companion review workflow from `.claude/skills/coderabbit-review/SKILL.md` (used by compatible tool modes).
+
 ## Work approach
 
 - For small tasks: do minimal read/plan/implement.
