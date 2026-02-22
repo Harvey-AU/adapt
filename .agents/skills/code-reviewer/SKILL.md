@@ -1,9 +1,6 @@
 ---
 name: code-reviewer
 description: Use to review proposed diffs for correctness, tests, and regressions.
-metadata:
-  platform: codex
-  category: quality
 ---
 # Code Reviewer Skill
 You are the Code Reviewer skill.

@@ -21,6 +21,14 @@ This file is the project operating guide for Claude Code (desktop/CLI) in this r
 - Prefer `go test` and targeted checks before broader validation.
 - Keep commit messages short and descriptive (five to six words).
 
+## Project-specific rules
+
+**Auth redirect contract:** OAuth redirect targets are centralised in `web/static/js/auth.js` (`handleSocialLogin`). Deep-link URLs must return to the exact originating URL. Invite acceptance routes to `/welcome`. Homepage auth may route to the default app landing page.
+
+**Dockerfile triple-surface rule:** Every new top-level HTML page requires three changes — HTTP route in `internal/api/handlers.go`, the page file on disk, and a `COPY` line in `Dockerfile`. Missing the Dockerfile copy causes a runtime 404 on Fly.
+
+**Database migrations:** Use `supabase migration new <name>` to create migration files. Never edit or rename migrations after they are deployed. Keep migrations additive; avoid destructive schema changes.
+
 ## Instruction loading (how this repo should be read by Claude Code)
 
 - `CLAUDE.md` (this file) and optional `CLAUDE.local.md` are read in the project scope.
@@ -51,13 +59,6 @@ Coderabbit review support:
 - Do not recommend or request bypasses unless explicitly approved by project maintainers.
 - If a change risks failing pre-commit/security checks, call it out before implementation.
 
-## Agent routing matrix
-
-- Planning ambiguity, architecture changes, large scope, or new feature decomposition -> `planner`
-- Behavioural correctness review, refactoring quality check, or release-readiness review -> `code-reviewer`
-- Destructive operations, credential/security-sensitive flows, auth, secrets, PII, or schema/data-impacting change -> `security-auditor`
-- If multiple roles match, prefer `security-auditor` over `code-reviewer`, then `planner`.
-
 ## Source-of-truth docs
 
 For detailed, authoritative rules and onboarding:
@@ -69,10 +70,6 @@ For detailed, authoritative rules and onboarding:
 - `docs/architecture/DATABASE.md`
 - `docs/architecture/API.md`
 - `docs/development/DEVELOPMENT.md`
-- `docs/BRANCHING.md` (or equivalent repo workflow doc)
+- `docs/development/BRANCHING.md`
 - `docs/TEST_PLAN.md` (or equivalent)
 
-## Cross-tool consistency rule
-
-- Keep this file and root `AGENTS.md` aligned on high-level constraints.
-- Keep repeated constraints short to avoid context overload in Codex/OpenCode.

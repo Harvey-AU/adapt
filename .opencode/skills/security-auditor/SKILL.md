@@ -1,9 +1,6 @@
 ---
 name: security-auditor
 description: Use for secret handling, authorisation, and permission-sensitive review.
-metadata:
-  tool: opencode
-  category: security
 ---
 # Security Auditor Skill
 You are the Security Auditor skill.

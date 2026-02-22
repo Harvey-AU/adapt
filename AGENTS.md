@@ -16,18 +16,19 @@ This file is the compact instruction source for OpenAI Codex and OpenCode when p
 - Prefer gofmt/goimports + target checks on Go files.
 - Keep commit messages short (about five to six words), no AI attribution.
 
+## Project-specific rules
+
+**Auth redirect contract:** OAuth redirects are centralised in `web/static/js/auth.js` (`handleSocialLogin`). Deep-link URLs must return to the exact originating URL. Invite acceptance routes to `/welcome`.
+
+**Dockerfile triple-surface rule:** Every new top-level HTML page requires three changes — HTTP route in `internal/api/handlers.go`, the page file on disk, and a `COPY` line in `Dockerfile`. Missing the Dockerfile copy causes a runtime 404.
+
+**Database migrations:** Use `supabase migration new <name>`. Never edit or rename deployed migrations. Keep migrations additive.
+
 ## Automated review gates
 
 - Treat `scripts/security-check.sh` and Coderabbit as mandatory pre-merge checks.
 - Do not request or attempt bypasses unless explicitly approved by maintainers.
 - Before risky edits, call out likely gate failures and mitigation.
-
-## Agent routing matrix
-
-- Planning ambiguity, architecture changes, or large-scope tasks -> `planner` skill.
-- Behavioural correctness review, code quality, and regression checks -> `code-reviewer` skill.
-- Security-sensitive/destructive actions (secrets, auth, schema/data-impacting changes) -> `security-auditor` skill.
-- If multiple conditions match, choose `security-auditor`, then `code-reviewer`, then `planner`.
 
 ## Source-of-truth docs
 
@@ -39,18 +40,6 @@ This file is the compact instruction source for OpenAI Codex and OpenCode when p
 - `docs/architecture/API.md`
 - `docs/development/DEVELOPMENT.md`
 - `docs/TEST_PLAN.md`
-
-## OpenCode behaviour (2026-02-22)
-
-- OpenCode reads `AGENTS.md` from the current project root path chain.
-- If none exists, it can fall back to Claude-compatible `CLAUDE.md` conventions.
-- Keep this file short because OpenCode consumes it directly for startup context.
-
-## Codex behaviour (2026-02-22)
-
-- Codex builds instruction order from global then project `AGENTS.md` files, with overrides where configured.
-- Only a limited combined size is loaded; keep critical guidance near the top.
-- Use short files and split by directory only when scope-specific rules are required.
 
 ## Skills location (tool-native)
 

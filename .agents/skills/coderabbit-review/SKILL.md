@@ -1,9 +1,6 @@
 ---
 name: coderabbit-review
 description: Resolve Coderabbit PR comments with one commit per actionable item and explicit PR-thread acknowledgement for skipped comments.
-metadata:
-  platform: codex
-  category: review
 ---
 # Coderabbit Review Skill
 You are the Coderabbit Review skill.

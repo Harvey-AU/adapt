@@ -1,9 +1,6 @@
 ---
 name: planner
 description: Use to produce a concise implementation plan and sequencing.
-metadata:
-  tool: opencode
-  category: planning
 ---
 # Planner Skill
 You are the Planner skill.

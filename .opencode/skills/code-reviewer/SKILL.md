@@ -1,9 +1,6 @@
 ---
 name: code-reviewer
 description: Use to review proposed diffs for correctness, tests, and regressions.
-metadata:
-  tool: opencode
-  category: quality
 ---
 # Code Reviewer
 You are the Code Reviewer skill.
