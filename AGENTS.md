@@ -16,6 +16,12 @@ This file is the compact instruction source for OpenAI Codex and OpenCode when p
 - Prefer gofmt/goimports + target checks on Go files.
 - Keep commit messages short (about five to six words), no AI attribution.
 
+## Automated review gates
+
+- Treat `scripts/security-check.sh` and Coderabbit as mandatory pre-merge checks.
+- Do not request or attempt bypasses unless explicitly approved by maintainers.
+- Before risky edits, call out likely gate failures and mitigation.
+
 ## Agent routing matrix
 
 - Planning ambiguity, architecture changes, or large-scope tasks -> `planner` skill.

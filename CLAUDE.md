@@ -41,6 +41,12 @@ Use these files as dedicated specialists to reduce context pollution:
 - For large changes: confirm scope, prepare a staged plan, then implement in bounded increments.
 - Report blockers clearly with concrete risk and proposed mitigation.
 
+## Automated review gates
+
+- Treat `scripts/security-check.sh` and Coderabbit checks as mandatory pre-merge gates.
+- Do not recommend or request bypasses unless explicitly approved by project maintainers.
+- If a change risks failing pre-commit/security checks, call it out before implementation.
+
 ## Agent routing matrix
 
 - Planning ambiguity, architecture changes, large scope, or new feature decomposition -> `planner`
