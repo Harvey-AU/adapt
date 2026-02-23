@@ -173,6 +173,23 @@ type JobListResponse = {
   jobs: JobItem[];
 };
 
+type JobTask = {
+  id: string;
+  path: string;
+  url: string;
+  status: string;
+  response_time?: number;
+  second_response_time?: number;
+  source_url?: string;
+};
+
+type JobTasksResponse = {
+  tasks: JobTask[];
+  pagination?: {
+    total?: number;
+  };
+};
+
 type Scheduler = {
   id: string;
   domain: string;
@@ -286,6 +303,9 @@ const ui = {
 
   // Mini chart
   miniChart: document.getElementById("miniChart"),
+  chartScaleLabels: Array.from(
+    document.querySelectorAll("#chartSection .chart-y-scale span")
+  ),
 
   // Footer
   feedbackButton: document.getElementById("feedbackButton"),
@@ -1302,7 +1322,7 @@ function renderRecentResults(jobs: JobItem[]): void {
   const recentJobs = groupedJobs.slice(1, 6);
 
   if (latestJob) {
-    latestContainer.appendChild(buildResultCard(latestJob, true));
+    latestContainer.appendChild(buildResultCard(latestJob));
   }
 
   if (recentJobs.length > 0) {
@@ -1418,6 +1438,24 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
 
   let hasAnyIssues = false;
   const tabElements: HTMLElement[] = [];
+  let firstTab: HTMLButtonElement | null = null;
+  let firstTabKey: string | null = null;
+  const issueRowsCache = new Map<string, JobTask[]>();
+  let activeTabKey: string | null = null;
+
+  const activateIssueTab = (tab: HTMLElement, tabKey: string): void => {
+    activeTabKey = tabKey;
+
+    for (const t of tabElements) {
+      t.classList.remove("active");
+    }
+
+    tab.classList.add("active");
+    show(tablePanel);
+    void renderIssuesTable(tablePanel, job, tabKey, issueRowsCache, () => {
+      return activeTabKey === tabKey;
+    });
+  };
 
   for (const def of tabDefs) {
     if (def.count <= 0) {
@@ -1435,7 +1473,6 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
       // Toggle: if already active, collapse
       const wasActive = tab.classList.contains("active");
 
-      // Deactivate all tabs
       for (const t of tabElements) {
         t.classList.remove("active");
       }
@@ -1445,13 +1482,16 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
         return;
       }
 
-      tab.classList.add("active");
-      show(tablePanel);
-      renderIssuesTable(tablePanel, job, def.key);
+      activateIssueTab(tab, def.key);
     });
 
     tabs.appendChild(tab);
     tabElements.push(tab);
+
+    if (!firstTab) {
+      firstTab = tab;
+      firstTabKey = def.key;
+    }
   }
 
   if (hasAnyIssues) {
@@ -1473,7 +1513,7 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
   const csvBtn = document.createElement("button");
   csvBtn.type = "button";
   csvBtn.className = "btn-sm";
-  csvBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Export Results`;
+  csvBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 18v2h16v-2"/></svg> Export Results`;
   csvBtn.addEventListener("click", () => {
     void exportJob(job.id);
   });
@@ -1498,6 +1538,10 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
     if (details.classList.contains("hidden")) {
       details.classList.remove("hidden");
       card.classList.add("result-card-expanded");
+
+      if (hasAnyIssues && firstTab && firstTabKey) {
+        activateIssueTab(firstTab, firstTabKey);
+      }
       return;
     }
     details.classList.add("hidden");
@@ -1506,6 +1550,9 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
 
   if (startExpanded) {
     card.classList.add("result-card-expanded");
+    if (hasAnyIssues && firstTab && firstTabKey) {
+      activateIssueTab(firstTab, firstTabKey);
+    }
   }
 
   header.addEventListener("click", toggleDetails);
@@ -1518,86 +1565,277 @@ function buildResultCard(job: JobItem, startExpanded = false): HTMLElement {
 // Issues detail table (inside a result card, toggled by tab click)
 // ---------------------------------------------------------------------------
 
-function renderIssuesTable(
-  panel: HTMLElement,
-  _job: JobItem,
+function taskResponseTime(task: JobTask): number | null {
+  if (
+    typeof task.second_response_time === "number" &&
+    Number.isFinite(task.second_response_time) &&
+    task.second_response_time > 0
+  ) {
+    return task.second_response_time;
+  }
+
+  if (
+    typeof task.response_time === "number" &&
+    Number.isFinite(task.response_time) &&
+    task.response_time > 0
+  ) {
+    return task.response_time;
+  }
+
+  return null;
+}
+
+function toPathDisplay(value: string | undefined): string {
+  if (!value) {
+    return "-";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  if (trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const path = `${parsed.pathname || "/"}${parsed.search}${parsed.hash}`;
+    return path || "/";
+  } catch {
+    return trimmed;
+  }
+}
+
+function toAbsoluteUrl(
+  value: string | undefined,
+  fallbackUrl?: string
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.toString();
+  } catch {
+    // continue
+  }
+
+  if (!trimmed.startsWith("/")) {
+    return null;
+  }
+
+  if (fallbackUrl) {
+    try {
+      const base = new URL(fallbackUrl);
+      return new URL(trimmed, `${base.protocol}//${base.host}`).toString();
+    } catch {
+      // continue
+    }
+  }
+
+  return null;
+}
+
+async function fetchIssueTasks(
+  jobId: string,
   tabKey: string
-): void {
+): Promise<JobTask[]> {
+  const basePath = `/v1/jobs/${encodeURIComponent(jobId)}/tasks?limit=200`;
+
+  const query =
+    tabKey === "broken"
+      ? `${basePath}&status=failed&sort=-created_at`
+      : `${basePath}&sort=-second_response_time`;
+
+  const response = await apiRequest<JobTasksResponse>(query, { method: "GET" });
+  const tasks = Array.isArray(response.tasks) ? response.tasks : [];
+
+  if (tabKey === "broken") {
+    return tasks;
+  }
+
+  const withTimes = tasks
+    .map((task) => ({ task, responseTime: taskResponseTime(task) }))
+    .filter(
+      (item): item is { task: JobTask; responseTime: number } =>
+        item.responseTime !== null
+    );
+
+  if (tabKey === "veryslow") {
+    return withTimes
+      .filter((item) => item.responseTime >= 5000)
+      .sort((a, b) => b.responseTime - a.responseTime)
+      .map((item) => item.task);
+  }
+
+  return withTimes
+    .filter((item) => item.responseTime >= 3000 && item.responseTime < 5000)
+    .sort((a, b) => b.responseTime - a.responseTime)
+    .map((item) => item.task);
+}
+
+async function renderIssuesTable(
+  panel: HTMLElement,
+  job: JobItem,
+  tabKey: string,
+  cache: Map<string, JobTask[]>,
+  isStillActive: () => boolean
+): Promise<void> {
   while (panel.firstChild) {
     panel.removeChild(panel.firstChild);
   }
 
-  // TODO: fetch task-level issue data from API
-  // e.g. GET /v1/jobs/{id}/tasks?status=failed or similar
-  // For now, show placeholder rows
+  const loading = document.createElement("p");
+  loading.className = "detail";
+  loading.textContent = "Loading...";
+  panel.appendChild(loading);
+
+  let tasks: JobTask[];
+  try {
+    if (cache.has(tabKey)) {
+      tasks = cache.get(tabKey) || [];
+    } else {
+      tasks = await fetchIssueTasks(job.id, tabKey);
+      cache.set(tabKey, tasks);
+    }
+  } catch (error) {
+    if (!isStillActive()) {
+      return;
+    }
+
+    while (panel.firstChild) {
+      panel.removeChild(panel.firstChild);
+    }
+    const failed = document.createElement("p");
+    failed.className = "detail";
+    failed.textContent = "Could not load issue details.";
+    panel.appendChild(failed);
+    return;
+  }
+
+  if (!isStillActive()) {
+    return;
+  }
+
+  while (panel.firstChild) {
+    panel.removeChild(panel.firstChild);
+  }
 
   const columnLabels: Record<string, [string, string]> = {
     broken: ["Broken URL", "Found at"],
-    veryslow: ["Slow URL", "Response time"],
+    veryslow: ["URL", "Response time"],
     slow: ["URL", "Response time"],
   };
 
   const [col1Label, col2Label] = columnLabels[tabKey] || ["URL", "Details"];
 
-  // Placeholder data — TODO: replace with real task data from API
-  const placeholderRows: [string, string][] =
-    tabKey === "broken"
-      ? [
-          ["/about-us/team", "/contact"],
-          ["/blog/old-post", "/homepage"],
-          ["/resources/download", "/pricing"],
-        ]
-      : tabKey === "veryslow"
-        ? [
-            ["/gallery/portfolio", "4,200ms"],
-            ["/shop/all-products", "3,800ms"],
-            ["/blog/media-heavy", "3,500ms"],
-          ]
-        : [
-            ["/services/consulting", "1,800ms"],
-            ["/about-us", "1,500ms"],
-            ["/faq", "1,200ms"],
-          ];
-
-  // Build two-column table
   const body = document.createElement("div");
   body.className = "issues-table-body";
 
   const col1 = document.createElement("div");
   col1.className = "issues-table-col";
-  col1.innerHTML = `<div class="issues-table-heading">${col1Label}</div>`;
+  const col1Heading = document.createElement("div");
+  col1Heading.className = "issues-table-heading";
+  col1Heading.textContent = col1Label;
+  col1.appendChild(col1Heading);
 
   const col2 = document.createElement("div");
   col2.className = "issues-table-col";
-  col2.innerHTML = `<div class="issues-table-heading">${col2Label}</div>`;
+  const col2Heading = document.createElement("div");
+  col2Heading.className = "issues-table-heading";
+  col2Heading.textContent = col2Label;
+  col2.appendChild(col2Heading);
 
-  for (const [val1, val2] of placeholderRows) {
-    const row1 = document.createElement("div");
-    row1.className = "issues-table-row";
-    row1.innerHTML = `<span class="issues-table-cell">${val1}</span>`;
-    col1.appendChild(row1);
+  const rows = tasks.slice(0, 20);
 
-    const row2 = document.createElement("div");
-    row2.className = "issues-table-row";
-    row2.innerHTML = `<span class="issues-table-cell">${val2}</span>`;
-    col2.appendChild(row2);
+  if (rows.length === 0) {
+    const noData = document.createElement("p");
+    noData.className = "detail";
+    noData.textContent =
+      tabKey === "broken"
+        ? "No broken links found for this run."
+        : tabKey === "veryslow"
+          ? "No very slow pages found for this run."
+          : "No slow pages found for this run.";
+    panel.appendChild(noData);
+  } else {
+    for (const task of rows) {
+      const leftText = toPathDisplay(task.path || task.url);
+      const rightText =
+        tabKey === "broken"
+          ? toPathDisplay(task.source_url)
+          : (() => {
+              const responseTime = taskResponseTime(task);
+              return responseTime !== null
+                ? `${responseTime.toLocaleString()}ms`
+                : "-";
+            })();
+
+      const row1 = document.createElement("div");
+      row1.className = "issues-table-row";
+      const cell1 = document.createElement("span");
+      cell1.className = "issues-table-cell";
+      const leftHref = toAbsoluteUrl(task.url || task.path, task.url);
+      if (leftHref) {
+        const leftLink = document.createElement("a");
+        leftLink.className = "issues-table-link";
+        leftLink.href = leftHref;
+        leftLink.target = "_blank";
+        leftLink.rel = "noopener noreferrer";
+        leftLink.textContent = leftText;
+        cell1.appendChild(leftLink);
+      } else {
+        cell1.textContent = leftText;
+      }
+      row1.appendChild(cell1);
+      col1.appendChild(row1);
+
+      const row2 = document.createElement("div");
+      row2.className = "issues-table-row";
+      const cell2 = document.createElement("span");
+      cell2.className = "issues-table-cell";
+      if (tabKey === "broken") {
+        const rightHref = toAbsoluteUrl(task.source_url);
+        if (rightHref) {
+          const rightLink = document.createElement("a");
+          rightLink.className = "issues-table-link";
+          rightLink.href = rightHref;
+          rightLink.target = "_blank";
+          rightLink.rel = "noopener noreferrer";
+          rightLink.textContent = rightText;
+          cell2.appendChild(rightLink);
+        } else {
+          cell2.textContent = rightText;
+        }
+      } else {
+        cell2.textContent = rightText;
+      }
+      row2.appendChild(cell2);
+      col2.appendChild(row2);
+    }
+
+    body.appendChild(col1);
+    body.appendChild(col2);
+    panel.appendChild(body);
   }
 
-  body.appendChild(col1);
-  body.appendChild(col2);
-  panel.appendChild(body);
-
-  // "View all" footer link
   const footer = document.createElement("div");
   footer.className = "issues-table-footer";
-  // TODO: update count and link to full report when API data is available
   const viewAllBtn = document.createElement("button");
   viewAllBtn.type = "button";
-  viewAllBtn.className = "btn-link-blue";
+  viewAllBtn.className = "btn-secondary";
   viewAllBtn.textContent = `View all ${tabKey === "broken" ? "broken links" : tabKey === "veryslow" ? "very slow pages" : "slow pages"}`;
   viewAllBtn.addEventListener("click", () => {
-    const detailPath = _job.id
-      ? `${APP_ROUTES.viewJob}/${encodeURIComponent(_job.id)}`
+    const detailPath = job.id
+      ? `${APP_ROUTES.viewJob}/${encodeURIComponent(job.id)}`
       : APP_ROUTES.dashboard;
     openSettingsPage(detailPath);
   });
@@ -1715,6 +1953,9 @@ function renderMiniChart(jobs: JobItem[]): void {
     .slice(0, 12);
 
   if (completedJobs.length === 0) {
+    for (const label of ui.chartScaleLabels || []) {
+      label.textContent = "0";
+    }
     return;
   }
 
@@ -1727,40 +1968,67 @@ function renderMiniChart(jobs: JobItem[]): void {
       const { brokenLinks, verySlow, slow } = getIssueCounts(job);
       const errorCount = brokenLinks;
       const okCount = verySlow + slow;
+      const totalPages = Math.max(0, job.total_tasks);
       return {
         job,
         errorCount,
         okCount,
         issueTotal: errorCount + okCount,
+        totalPages,
       };
     })
-    .filter((row) => row.issueTotal > 0)
+    .filter((row) => row.issueTotal > 0 && row.totalPages > 0)
     .reverse();
 
   if (chartRows.length === 0) {
+    for (const label of ui.chartScaleLabels || []) {
+      label.textContent = "0";
+    }
     return;
   }
 
   const maxIssues = Math.max(...chartRows.map((row) => row.issueTotal), 1);
 
-  const maxBarHeight = 30;
-  const minSegmentHeight = 3;
+  const tickTop = maxIssues;
+  const tickMid = Math.round(maxIssues * 0.5);
+  const tickQuarter = Math.round(maxIssues * 0.25);
+  const tickValues = [tickTop, tickMid, tickQuarter, 0];
+
+  (ui.chartScaleLabels || []).forEach((label, index) => {
+    const value = tickValues[index] ?? 0;
+    label.textContent = String(value);
+  });
+
+  const minSegmentHeightPercent = 2;
 
   for (const row of chartRows) {
     const job = row.job;
     const bar = document.createElement("div");
     bar.className = "chart-bar";
+    bar.role = "button";
+    bar.tabIndex = 0;
     const dateStr = formatShortDate(job.completed_at || job.created_at);
     bar.title = `${dateStr}\nStatus: Completed\nOK: ${row.okCount}\nError: ${row.errorCount}\nTotal pages: ${job.total_tasks.toLocaleString()}`;
+
+    const detailPath = `${APP_ROUTES.viewJob}/${encodeURIComponent(job.id)}`;
+    bar.addEventListener("click", () => {
+      openSettingsPage(detailPath);
+    });
+    bar.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSettingsPage(detailPath);
+      }
+    });
 
     if (row.okCount > 0) {
       const seg = document.createElement("div");
       seg.className = "chart-bar-warn";
       const okHeight = Math.max(
-        minSegmentHeight,
-        Math.round((row.okCount / maxIssues) * maxBarHeight)
+        minSegmentHeightPercent,
+        Math.min((row.okCount / maxIssues) * 100, 100)
       );
-      seg.style.height = `${okHeight}px`;
+      seg.style.height = `${okHeight}%`;
       bar.appendChild(seg);
     }
 
@@ -1768,10 +2036,10 @@ function renderMiniChart(jobs: JobItem[]): void {
       const seg = document.createElement("div");
       seg.className = "chart-bar-danger";
       const errorHeight = Math.max(
-        minSegmentHeight,
-        Math.round((row.errorCount / maxIssues) * maxBarHeight)
+        minSegmentHeightPercent,
+        Math.min((row.errorCount / maxIssues) * 100, 100)
       );
-      seg.style.height = `${errorHeight}px`;
+      seg.style.height = `${errorHeight}%`;
       bar.appendChild(seg);
     }
 

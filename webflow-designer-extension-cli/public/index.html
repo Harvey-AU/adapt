@@ -169,8 +169,16 @@
 
             <!-- ─── Mini chart ─── -->
             <div class="chart-section" id="chartSection">
-              <div class="mini-chart" id="miniChart">
-                <!-- TODO: populate stacked bar chart from recent job history -->
+              <div class="chart-layout">
+                <div class="chart-y-scale" aria-hidden="true">
+                  <span>100</span>
+                  <span>50</span>
+                  <span>25</span>
+                  <span>0</span>
+                </div>
+                <div class="mini-chart" id="miniChart">
+                  <!-- populated by JS from recent job history -->
+                </div>
               </div>
             </div>
 

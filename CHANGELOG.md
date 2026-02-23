@@ -26,7 +26,7 @@ On merge, CI will:
 4. Create a git tag and GitHub release
 5. Commit the updated changelog
 
-## [Unreleased]
+## [Unreleased:minor]
 
 ### Added
 
@@ -38,6 +38,11 @@ On merge, CI will:
   in CI/deploy flows.
 - **UI/extension config updates**: Extended local extension manifest/build
   artifacts and widget UI styling/assets for the Webflow Designer embed.
+- **Jobs list stats include**: Added optional `include=stats` support on
+  `GET /v1/jobs` so extension/dashboard list views can consume job stats without
+  per-job detail fetches.
+- **Result chart interactions**: Added clickable past-results chart bars in the
+  Webflow Designer extension that open each job's detailed results page.
 
 ### Changed
 
@@ -48,6 +53,18 @@ On merge, CI will:
   so the app remains usable even when auth assets are delayed.
 - **Auth handoff validation**: Hardened popup origin checks and request handling
   to avoid false failures in cross-origin postMessage exchange.
+- **Extension results layout**: Reworked completed-run cards into grouped
+  "Latest report" and "Past results" sections, default collapsed card details,
+  and improved status/date placement for faster scanning.
+- **Past-results chart presentation**: Updated chart to show the last 12
+  completed runs with stacked OK/Error outlined bars, numeric Y-axis ticks, and
+  native hover tooltips.
+- **Latest report behaviour**: Changed latest result cards to start collapsed by
+  default, matching past result cards.
+- **Result table interactions**: Expanded result cards now auto-open the first
+  available issue tab (for example, broken links) when details are opened.
+- **In-progress card spacing**: Hidden empty issue and action rows while no
+  issue pills are available to prevent extra blank space during active runs.
 
 ### Fixed
 
@@ -59,6 +76,17 @@ On merge, CI will:
   explicitly selected.
 - **Config consistency**: Added environment key examples and backend override
   support for custom Supabase auth endpoint use.
+- **Extension export correctness**: Fixed extension export to build CSV from the
+  API export payload (`columns` + `tasks`) instead of downloading raw JSON as a
+  CSV file.
+- **Issue details accuracy**: Replaced placeholder issue rows in extension tabs
+  with real `/v1/jobs/:id/tasks` data, including correct broken/slow filtering,
+  path-only display, and clickable links that open full URLs in a new window.
+- **Live results refresh stability**: Fixed excessive re-renders/flicker by only
+  re-rendering completed results and chart sections when relevant job signatures
+  change.
+- **Completed run transition**: Fixed state transitions so newly completed runs
+  appear in Latest/Past results immediately when the in-progress card is hidden.
 
 ## [0.26.6] – 2026-02-14
 
