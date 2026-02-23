@@ -127,16 +127,16 @@
           <!-- Active / current job card -->
           <div id="jobSection" class="result-card">
             <div class="result-card-header">
-              <div class="result-status-left">
-                <span id="jobStatusIcon" class="job-status-icon"></span>
-                <span id="jobStatusLabel" class="result-status-label"
-                  >Loading&hellip;</span
-                >
-              </div>
               <div class="job-progress-right">
                 <span class="dot dot-success"></span>
                 <span id="jobProgressText" class="job-progress-text"
                   >&mdash;</span
+                >
+              </div>
+              <div class="result-status-left">
+                <span id="jobStatusIcon" class="job-status-icon"></span>
+                <span id="jobStatusLabel" class="result-status-label"
+                  >Loading&hellip;</span
                 >
               </div>
             </div>
@@ -156,23 +156,26 @@
           <!-- No job placeholder -->
           <div id="noJobState" class="no-job-state hidden">
             <p class="detail">No runs yet for this site.</p>
-            <button id="checkSiteAuthButton" type="button" class="btn-primary">
-              CHECK SITE
-            </button>
           </div>
 
-          <!-- ─── Recent results ─── -->
+          <!-- ─── Results + chart ─── -->
           <div class="results-section">
-            <p class="section-heading">Completed</p>
-            <div id="recentResultsList" class="results-list">
-              <!-- Populated by JS — each child is a .result-card -->
+            <p class="section-heading">Latest report</p>
+            <div id="latestResultsList" class="results-list">
+              <!-- Populated by JS — latest completed result -->
             </div>
-          </div>
 
-          <!-- ─── Mini chart ─── -->
-          <div class="chart-section" id="chartSection">
-            <div class="mini-chart" id="miniChart">
-              <!-- TODO: populate stacked bar chart from recent job history -->
+            <p class="section-heading">Past results</p>
+
+            <!-- ─── Mini chart ─── -->
+            <div class="chart-section" id="chartSection">
+              <div class="mini-chart" id="miniChart">
+                <!-- TODO: populate stacked bar chart from recent job history -->
+              </div>
+            </div>
+
+            <div id="recentResultsList" class="results-list">
+              <!-- Populated by JS — previous completed results -->
             </div>
           </div>
         </div>
@@ -197,7 +200,7 @@
             </svg>
             Feedback
           </button>
-          <button id="helpButton" type="button" class="footer-btn-outline">
+          <button id="helpButton" type="button" class="footer-link">
             <!-- Info circle icon (SVG inline) -->
             <svg
               width="16"

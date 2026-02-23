@@ -37,7 +37,7 @@
   --size--icon-small: 16px;
   --size--avatar: 30px;
   --size--dot-small: 6px;
-  --size--dot-default: 10px;
+  --size--dot-default: 0.75em;
   --size--toggle-width: 29px;
   --size--toggle-height: 17px;
   --size--toggle-thumb: 12px;
@@ -68,16 +68,16 @@
   --opacity--disabled-soft: 0.4;
 
   /* Primitive colours */
-  --colour--brand-primary: #146ef5;
-  --colour--brand-primary-hover: #0078e6;
+  --colour--brand-primary: #38a904;
+  --colour--brand-primary-hover: #4bbe15;
   --colour--neutral-0: #e0f9a2;
-  --colour--neutral-100: #e0f9a2ab;
+  --colour--neutral-100: #dce4c2;
   --colour--neutral-300: #b1b1b1;
   --colour--neutral-700: #434343;
   --colour--neutral-750: #1c3227;
-  --colour--neutral-800: #0a081b;
+  --colour--neutral-800: #292929;
   --colour--neutral-850: #49552d;
-  --colour--neutral-900: #0e251a;
+  --colour--neutral-900: #292929;
   --colour--status-success: #22c55e;
   --colour--status-warning: #f59e0b;
   --colour--status-danger: #f50b0b;
@@ -110,7 +110,7 @@
   --text-colour--secondary: var(--colour--neutral-300);
   --text-colour--heading: var(--colour--neutral-0);
   --text-colour--disabled: var(--colour--white-40);
-  --text-colour--on-brand: var(--colour--neutral-0);
+  --text-colour--on-brand: var(--colour--white);
 
   --border-colour--default: var(--colour--white-13);
   --border-colour--strong: var(--colour--white-19);
@@ -275,6 +275,7 @@ body {
   justify-content: space-between;
   gap: var(--spacing--2xl);
   flex-shrink: 0;
+  background: var(--background-colour--surface);
 }
 
 .topbar-left {
@@ -311,22 +312,6 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
-}
-
-.org-dropdown {
-  color: var(--text-colour--secondary);
-  background-color: unset;
-  border: var(--border-size-button-subtle) solid
-    var(--border-colour--button-subtle);
-  border-radius: var(--radius--control);
-  padding: var(--spacing--xs) var(--spacing--sm);
-  font-family: var(--font-family--primary);
-  font-size: var(--font-size--label);
-}
-
-.org-dropdown option {
-  background: var(--background-colour--canvas);
-  color: var(--text-colour--primary);
 }
 
 .plan-badge {
@@ -393,6 +378,7 @@ select {
   justify-content: space-between;
   gap: var(--spacing--xl);
   flex-shrink: 0;
+  background: var(--background-colour--surface);
 }
 
 .btn-primary,
@@ -413,7 +399,7 @@ select {
   box-shadow: var(--shadow--surface);
   justify-content: center;
   align-items: center;
-  font-weight: 400;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   height: auto;
@@ -423,6 +409,8 @@ select {
 .btn-secondary {
   appearance: none;
   background-color: var(--colour--neutral-750);
+  border: 1px solid var(--background-colour--brand);
+  color: var(--background-colour--brand);
 }
 
 .btn-primary:hover {
@@ -430,7 +418,8 @@ select {
 }
 
 .btn-secondary:hover {
-  background-color: var(--colour--neutral-700);
+  background-color: var(--background-colour--brand-hover);
+  color: var(--colour--white);
 }
 
 .btn-primary:disabled,
@@ -532,8 +521,7 @@ select {
   color: var(--text-colour--primary);
   border: var(--border-size--default) solid var(--border-colour--active);
   border-radius: var(--radius--control);
-  padding-left: var(--spacing--xl);
-  padding-right: var(--spacing--md);
+  padding: var(--spacing--md) var(--spacing--xl);
 }
 
 .detail {
@@ -758,14 +746,19 @@ select {
 /* ─── Result card ────────────────────────────────────────────────────────── */
 
 .result-card {
-  background: var(--background-colour--surface);
   border-radius: var(--radius--control);
   border: 1px solid var(--border-colour--surface);
   box-shadow: var(--shadow--surface);
-  padding: var(--spacing--lg) var(--spacing--xl);
+  padding: var(--spacing--xl) var(--spacing--2xl);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing--xs);
+  gap: var(--spacing--md);
+}
+
+.result-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing--sm);
 }
 
 .result-card-header {
@@ -773,10 +766,11 @@ select {
   align-items: center;
   justify-content: space-between;
   height: var(--font-size--caption);
+  gap: var(--spacing--lg);
+  cursor: pointer;
 }
 
 .result-card-date {
-  flex: 1;
   font-size: var(--font-size--body);
   color: var(--text-colour--primary);
   margin: 0;
@@ -785,12 +779,15 @@ select {
 .result-card-success {
   display: flex;
   align-items: center;
-  gap: var(--spacing--xs);
+  gap: var(--spacing--2xl);
 }
 
-.result-card-success-count {
-  font-size: var(--font-size--label);
+.result-card-count {
+  font-size: var(--font-size--body);
   color: var(--text-colour--primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing--md);
 }
 
 .result-card-success-total {
@@ -800,10 +797,22 @@ select {
 
 .result-card-stats {
   display: flex;
+  justify-content: space-between;
   gap: var(--spacing--3xl);
   align-items: center;
   font-size: var(--font-size--caption);
   color: var(--text-colour--primary);
+  cursor: pointer;
+}
+
+.result-card-stats-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing--3xl);
+}
+
+.result-card-stats-date {
+  margin-left: auto;
 }
 
 .result-card-stats span {
@@ -813,7 +822,7 @@ select {
 .result-card-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing--sm);
+  gap: var(--spacing--3xl);
   align-items: center;
 }
 
@@ -901,13 +910,11 @@ select {
 
 /* ─── CSV / export button ────────────────────────────────────────────────── */
 
+.btn-sm,
 .btn-outline-sm {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing--xl);
-  padding: var(--spacing--sm) var(--spacing--lg);
-  border: var(--border-size--strong) solid var(--background-colour--panel);
-  border-radius: var(--radius--control);
+  gap: var(--spacing--sm);
   background: transparent;
   color: var(--text-colour--primary);
   font-family: var(--font-family--primary);
@@ -917,6 +924,13 @@ select {
   white-space: nowrap;
   height: auto;
   letter-spacing: var(--letter-spacing--default);
+  border: unset;
+  padding: unset;
+}
+
+.btn-outline-sm {
+  padding: var(--spacing--sm) var(--spacing--lg);
+  border: var(--border-size--strong) solid var(--border-colour--surface);
 }
 
 .btn-outline-sm:hover {

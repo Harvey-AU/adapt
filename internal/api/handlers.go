@@ -109,7 +109,7 @@ type DBClient interface {
 	CreateUser(userID, email string, firstName, lastName, fullName *string, orgName string) (*db.User, *db.Organisation, error)
 	GetOrganisation(organisationID string) (*db.Organisation, error)
 	ListJobs(organisationID string, limit, offset int, status, dateRange, timezone string) ([]db.JobWithDomain, int, error)
-	ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int) ([]db.JobWithDomain, int, error)
+	ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int, includeStats bool) ([]db.JobWithDomain, int, error)
 	// Scheduler methods
 	CreateScheduler(ctx context.Context, scheduler *db.Scheduler) error
 	GetScheduler(ctx context.Context, schedulerID string) (*db.Scheduler, error)

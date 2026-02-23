@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -189,20 +190,22 @@ func (db *DB) GetJobActivity(organisationID string, startDate, endDate *time.Tim
 
 // JobListItem represents a job in the list view
 type JobListItem struct {
-	ID                    string   `json:"id"`
-	Status                string   `json:"status"`
-	Progress              float64  `json:"progress"`
-	TotalTasks            int      `json:"total_tasks"`
-	CompletedTasks        int      `json:"completed_tasks"`
-	FailedTasks           int      `json:"failed_tasks"`
-	SitemapTasks          int      `json:"sitemap_tasks"`
-	FoundTasks            int      `json:"found_tasks"`
-	CreatedAt             string   `json:"created_at"`
-	StartedAt             *string  `json:"started_at,omitempty"`
-	CompletedAt           *string  `json:"completed_at,omitempty"`
-	Domain                *string  `json:"domains,omitempty"` // For compatibility with frontend
-	DurationSeconds       *int     `json:"duration_seconds,omitempty"`
-	AvgTimePerTaskSeconds *float64 `json:"avg_time_per_task_seconds,omitempty"`
+	ID                    string         `json:"id"`
+	Status                string         `json:"status"`
+	Progress              float64        `json:"progress"`
+	TotalTasks            int            `json:"total_tasks"`
+	CompletedTasks        int            `json:"completed_tasks"`
+	FailedTasks           int            `json:"failed_tasks"`
+	SkippedTasks          int            `json:"skipped_tasks"`
+	SitemapTasks          int            `json:"sitemap_tasks"`
+	FoundTasks            int            `json:"found_tasks"`
+	CreatedAt             string         `json:"created_at"`
+	StartedAt             *string        `json:"started_at,omitempty"`
+	CompletedAt           *string        `json:"completed_at,omitempty"`
+	Domain                *string        `json:"domains,omitempty"` // For compatibility with frontend
+	DurationSeconds       *int           `json:"duration_seconds,omitempty"`
+	AvgTimePerTaskSeconds *float64       `json:"avg_time_per_task_seconds,omitempty"`
+	Stats                 map[string]any `json:"stats,omitempty"`
 }
 
 // Domain represents the domain information for jobs
@@ -330,7 +333,7 @@ func (db *DB) ListJobs(organisationID string, limit, offset int, status, dateRan
 }
 
 // ListJobsWithOffset lists jobs for an organisation with timezone offset-based date filtering
-func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int) ([]JobWithDomain, int, error) {
+func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int, includeStats bool) ([]JobWithDomain, int, error) {
 	// Build the base query
 	baseQuery := `
 		FROM jobs j
@@ -375,7 +378,7 @@ func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, statu
 	selectQuery := `
 	SELECT
 		j.id, j.status, j.progress, j.total_tasks, j.completed_tasks,
-		j.failed_tasks, j.sitemap_tasks, j.found_tasks, j.created_at,
+		j.failed_tasks, j.skipped_tasks, j.sitemap_tasks, j.found_tasks, j.created_at,
 		j.started_at, j.completed_at, d.name as domain_name,
 		j.duration_seconds,
 		CASE
@@ -383,6 +386,21 @@ func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, statu
 			ELSE NULL
 		END AS avg_time_per_task_seconds
 	` + baseQuery
+
+	if includeStats {
+		selectQuery = `
+	SELECT
+		j.id, j.status, j.progress, j.total_tasks, j.completed_tasks,
+		j.failed_tasks, j.skipped_tasks, j.sitemap_tasks, j.found_tasks, j.created_at,
+		j.started_at, j.completed_at, d.name as domain_name,
+		j.duration_seconds,
+		CASE
+			WHEN j.completed_tasks > 0 AND j.duration_seconds IS NOT NULL THEN j.duration_seconds::double precision / NULLIF(j.completed_tasks, 0)
+			ELSE NULL
+		END AS avg_time_per_task_seconds,
+		j.stats
+	` + baseQuery
+	}
 	// #nosec G202
 	selectQuery += fmt.Sprintf(" ORDER BY j.created_at DESC LIMIT %d OFFSET %d", limit, offset)
 
@@ -397,13 +415,20 @@ func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, statu
 		var job JobWithDomain
 		var startedAt, completedAt sql.NullString
 		var domainName sql.NullString
+		var statsJSON []byte
 
-		err := rows.Scan(
+		scanArgs := []any{
 			&job.ID, &job.Status, &job.Progress, &job.TotalTasks, &job.CompletedTasks,
-			&job.FailedTasks, &job.SitemapTasks, &job.FoundTasks, &job.CreatedAt,
+			&job.FailedTasks, &job.SkippedTasks, &job.SitemapTasks, &job.FoundTasks, &job.CreatedAt,
 			&startedAt, &completedAt, &domainName,
 			&job.DurationSeconds, &job.AvgTimePerTaskSeconds,
-		)
+		}
+
+		if includeStats {
+			scanArgs = append(scanArgs, &statsJSON)
+		}
+
+		err := rows.Scan(scanArgs...)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to scan job row")
 			continue
@@ -418,6 +443,13 @@ func (db *DB) ListJobsWithOffset(organisationID string, limit, offset int, statu
 		}
 		if domainName.Valid {
 			job.Domains = &Domain{Name: domainName.String}
+		}
+
+		if includeStats && len(statsJSON) > 0 {
+			var stats map[string]any
+			if err := json.Unmarshal(statsJSON, &stats); err == nil {
+				job.Stats = stats
+			}
 		}
 
 		jobs = append(jobs, job)
