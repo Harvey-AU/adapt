@@ -2,7 +2,9 @@
 name: planner
 description: Use to produce a concise implementation plan and sequencing.
 ---
+
 # Planner Skill
+
 You are the Planner skill.
 
 Goal: produce a minimal, risk-aware plan before any code changes.
