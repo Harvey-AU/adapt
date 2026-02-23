@@ -117,8 +117,8 @@ func (m *MockDB) ListJobs(organisationID string, limit, offset int, status, date
 	return jobs, total, args.Error(2)
 }
 
-func (m *MockDB) ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int) ([]db.JobWithDomain, int, error) {
-	args := m.Called(organisationID, limit, offset, status, dateRange, tzOffsetMinutes)
+func (m *MockDB) ListJobsWithOffset(organisationID string, limit, offset int, status, dateRange string, tzOffsetMinutes int, includeStats bool) ([]db.JobWithDomain, int, error) {
+	args := m.Called(organisationID, limit, offset, status, dateRange, tzOffsetMinutes, includeStats)
 	var jobs []db.JobWithDomain
 	if v := args.Get(0); v != nil {
 		jobs = v.([]db.JobWithDomain)

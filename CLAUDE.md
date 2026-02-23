@@ -2,17 +2,22 @@
 
 Last reviewed: 2026-02-22
 
-This file is the project operating guide for Claude Code (desktop/CLI) in this repository.
+This file is the project operating guide for Claude Code (desktop/CLI) in this
+repository.
 
 ## Hard requirements
 
-- Use Australian English in code comments, commit messages, user-facing text, and generated docs.
+- Use Australian English in code comments, commit messages, user-facing text,
+  and generated docs.
 - Preserve existing behaviour unless explicitly asked to change it.
-- Ask at most one clarifying question when ambiguity materially affects correctness or safety.
-- Ask for explicit confirmation before destructive steps (schema changes, credentials/config changes, or data-impacting actions).
+- Ask at most one clarifying question when ambiguity materially affects
+  correctness or safety.
+- Ask for explicit confirmation before destructive steps (schema changes,
+  credentials/config changes, or data-impacting actions).
 - Do not expose, invent, or log secrets, credentials, JWTs, or end-user content.
 - Keep edits scoped and incremental.
-- If a safety limit is reached in a tool, pause and continue with the best available path.
+- If a safety limit is reached in a tool, pause and continue with the best
+  available path.
 
 ## Technical baseline
 
@@ -23,17 +28,28 @@ This file is the project operating guide for Claude Code (desktop/CLI) in this r
 
 ## Project-specific rules
 
-**Auth redirect contract:** OAuth redirect targets are centralised in `web/static/js/auth.js` (`handleSocialLogin`). Deep-link URLs must return to the exact originating URL. Invite acceptance routes to `/welcome`. Homepage auth may route to the default app landing page.
+**Auth redirect contract:** OAuth redirect targets are centralised in
+`web/static/js/auth.js` (`handleSocialLogin`). Deep-link URLs must return to the
+exact originating URL. Invite acceptance routes to `/welcome`. Homepage auth may
+route to the default app landing page.
 
-**Dockerfile triple-surface rule:** Every new top-level HTML page requires three changes — HTTP route in `internal/api/handlers.go`, the page file on disk, and a `COPY` line in `Dockerfile`. Missing the Dockerfile copy causes a runtime 404 on Fly.
+**Dockerfile triple-surface rule:** Every new top-level HTML page requires three
+changes — HTTP route in `internal/api/handlers.go`, the page file on disk, and a
+`COPY` line in `Dockerfile`. Missing the Dockerfile copy causes a runtime 404 on
+Fly.
 
-**Database migrations:** Use `supabase migration new <name>` to create migration files. Never edit or rename migrations after they are deployed. Keep migrations additive; avoid destructive schema changes.
+**Database migrations:** Use `supabase migration new <name>` to create migration
+files. Never edit or rename migrations after they are deployed. Keep migrations
+additive; avoid destructive schema changes.
 
 ## Instruction loading (how this repo should be read by Claude Code)
 
-- `CLAUDE.md` (this file) and optional `CLAUDE.local.md` are read in the project scope.
-- Agent role files are loaded from `.claude/agents/*.md` and use YAML frontmatter.
-- Project agent files should be named and structured as `name`, `description`, and optional `tools`/`model`.
+- `CLAUDE.md` (this file) and optional `CLAUDE.local.md` are read in the project
+  scope.
+- Agent role files are loaded from `.claude/agents/*.md` and use YAML
+  frontmatter.
+- Project agent files should be named and structured as `name`, `description`,
+  and optional `tools`/`model`.
 
 ## Claude subagents required in this repo
 
@@ -45,19 +61,24 @@ Use these files as dedicated specialists to reduce context pollution:
 
 Coderabbit review support:
 
-- Open a companion review workflow from `.claude/skills/coderabbit-review/SKILL.md` (used by compatible tool modes).
+- Open a companion review workflow from
+  `.claude/skills/coderabbit-review/SKILL.md` (used by compatible tool modes).
 
 ## Work approach
 
 - For small tasks: do minimal read/plan/implement.
-- For large changes: confirm scope, prepare a staged plan, then implement in bounded increments.
+- For large changes: confirm scope, prepare a staged plan, then implement in
+  bounded increments.
 - Report blockers clearly with concrete risk and proposed mitigation.
 
 ## Automated review gates
 
-- Treat `scripts/security-check.sh` and Coderabbit checks as mandatory pre-merge gates.
-- Do not recommend or request bypasses unless explicitly approved by project maintainers.
-- If a change risks failing pre-commit/security checks, call it out before implementation.
+- Treat `scripts/security-check.sh` and Coderabbit checks as mandatory pre-merge
+  gates.
+- Do not recommend or request bypasses unless explicitly approved by project
+  maintainers.
+- If a change risks failing pre-commit/security checks, call it out before
+  implementation.
 
 ## Source-of-truth docs
 
@@ -72,4 +93,3 @@ For detailed, authoritative rules and onboarding:
 - `docs/development/DEVELOPMENT.md`
 - `docs/development/BRANCHING.md`
 - `docs/TEST_PLAN.md` (or equivalent)
-

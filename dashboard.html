@@ -729,6 +729,7 @@
           );
         } catch (error) {
           console.error("Failed to initialize dashboard:", error);
+          document.body.classList.remove("bb-auth-route-gated");
 
           // Show error message to user
           const errorNotification = document.createElement("div");

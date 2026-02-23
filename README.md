@@ -17,7 +17,7 @@ automated scheduling and webhook-triggered crawls.
 Keep your site fast and healthy with continuous monitoring and intelligent cache
 warming.
 
-Built by the Goodnative team in Castlemaine, Victoria, Australia.
+Built by the Good Native team in Castlemaine, Victoria, Australia.
 
 ## Key Features
 

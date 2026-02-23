@@ -351,11 +351,54 @@ function handleWebflowOAuthCallback() {
 
     // Load connections (which will also load sites)
     loadWebflowConnections();
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: true,
+        setup: webflowSetup === "true",
+        integration: "webflow",
+        connectionId,
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection message to opener",
+          error
+        );
+      }
+
+      window.setTimeout(() => {
+        window.close();
+      }, 150);
+    }
   } else if (webflowError) {
     showWebflowError(`Failed to connect Webflow: ${webflowError}`);
     const url = new URL(window.location.href);
     url.searchParams.delete("webflow_error");
     window.history.replaceState({}, "", url.toString());
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: false,
+        error: webflowError,
+        integration: "webflow",
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection error to opener",
+          error
+        );
+      }
+    }
   }
 }
 
@@ -591,6 +634,30 @@ async function handleScheduleChange(event) {
       site.schedule_interval_hours = interval;
     }
 
+    if (interval) {
+      let autoPublishEnabled = false;
+      try {
+        await setWebflowAutoPublishForSite(siteId, connectionId, true);
+        autoPublishEnabled = true;
+      } catch (autoPublishError) {
+        console.error(
+          "Failed to auto-enable run-on-publish:",
+          autoPublishError
+        );
+        showWebflowError(
+          "Schedule saved, but run-on-publish could not be enabled automatically."
+        );
+      }
+      if (site) {
+        site.auto_publish_enabled = autoPublishEnabled;
+      }
+      const row = select.closest(".webflow-site-row");
+      const rowToggle = row?.querySelector(".site-autopublish");
+      if (rowToggle) {
+        rowToggle.checked = autoPublishEnabled;
+      }
+    }
+
     // Brief visual feedback
     select.style.borderColor = "#10b981";
     setTimeout(() => {
@@ -608,6 +675,34 @@ async function handleScheduleChange(event) {
     }
   } finally {
     select.disabled = false;
+  }
+}
+
+async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
+  const { data: { session } = {} } = await window.supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    throw new Error("Not authenticated. Please sign in.");
+  }
+
+  const response = await fetch(
+    `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        connection_id: connectionId,
+        enabled,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `HTTP ${response.status}`);
   }
 }
 

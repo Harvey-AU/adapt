@@ -178,6 +178,64 @@ else
     echo "  ℹ️  No Go files to lint"
 fi
 
+# === LINT Webflow extension (TypeScript) ===
+echo ""
+echo "🧩 Linting Webflow extension files..."
+
+STAGED_EXTENSION_TS=$(git diff --cached --name-only --diff-filter=ACM | grep '^webflow-designer-extension-cli/.*\.ts$' || true)
+
+if [ -n "$STAGED_EXTENSION_TS" ]; then
+    echo "Found extension TypeScript files to lint:"
+    echo "$STAGED_EXTENSION_TS"
+
+    if [ -f "webflow-designer-extension-cli/package.json" ] && command -v npm > /dev/null 2>&1; then
+        (
+          cd webflow-designer-extension-cli
+          npm run lint
+        )
+    else
+        echo -e "${YELLOW}⚠️  npm is not available or extension package is missing; skipping extension lint${NC}"
+    fi
+else
+    echo "  ℹ️  No extension TypeScript files to lint"
+fi
+
+# === FORMAT Webflow extension files ===
+echo ""
+echo "🎨 Formatting Webflow extension files..."
+
+STAGED_EXTENSION_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '^webflow-designer-extension-cli/.*\.\(ts\|json\|md\|html\|css\|yml\|yaml\)$' || true)
+
+if [ -n "$STAGED_EXTENSION_FILES" ]; then
+    echo "Found extension files to format:"
+    echo "$STAGED_EXTENSION_FILES"
+
+    if [ -f "webflow-designer-extension-cli/package.json" ] && command -v npm > /dev/null 2>&1; then
+        (
+          cd webflow-designer-extension-cli
+          npm run format:write
+        )
+        # Re-stage any extension files changed by the formatter.
+        echo "$STAGED_EXTENSION_FILES" | xargs git add
+        FILES_FORMATTED=true
+
+        # Run a formatting check for visibility; this is informational only
+        # because formatting was already applied above.
+        (
+          cd webflow-designer-extension-cli
+          if npm run format:check; then
+            echo -e "${GREEN}  ✅ Extension format check passed${NC}"
+          else
+            echo -e "${YELLOW}  ⚠️  Extension format check reported differences${NC}"
+          fi
+        )
+    else
+        echo -e "${YELLOW}⚠️  npm is not available or extension package is missing; skipping extension formatting${NC}"
+    fi
+else
+    echo "  ℹ️  No extension files to format"
+fi
+
 # === FORMAT DOCS/CONFIG FILES ===
 echo ""
 echo "📝 Formatting docs and config files..."
