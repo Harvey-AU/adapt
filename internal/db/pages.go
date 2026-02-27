@@ -158,7 +158,12 @@ func ensurePageBatch(ctx context.Context, q TransactionExecutor, domainID int, b
 
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO domain_hosts (domain_id, host, is_primary, last_seen_at)
-			SELECT $1, UNNEST($2::text[]), FALSE, NOW()
+			SELECT $1, host, FALSE, NOW()
+			FROM (
+				SELECT DISTINCT host
+				FROM UNNEST($2::text[]) AS host
+				WHERE host <> ''
+			) unique_hosts
 			ON CONFLICT (domain_id, host) DO UPDATE
 			SET last_seen_at = NOW()
 		`, domainID, pq.Array(hosts)); err != nil {
