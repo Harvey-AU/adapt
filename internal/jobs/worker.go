@@ -1717,7 +1717,8 @@ func (wp *WorkerPool) checkForPendingTasks(ctx context.Context) error {
 			}
 
 			options := &JobOptions{
-				FindLinks: findLinks,
+				FindLinks:                findLinks,
+				AllowCrossSubdomainLinks: true,
 			}
 
 			wp.AddJob(jobID, options)

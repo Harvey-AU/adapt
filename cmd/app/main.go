@@ -112,18 +112,19 @@ func startJobScheduler(ctx context.Context, wg *sync.WaitGroup, jobsManager *job
 				// Create JobOptions from scheduler
 				sourceType := "scheduler"
 				opts := &jobs.JobOptions{
-					Domain:          domainName,
-					OrganisationID:  &scheduler.OrganisationID,
-					UseSitemap:      true,
-					Concurrency:     scheduler.Concurrency,
-					FindLinks:       scheduler.FindLinks,
-					MaxPages:        scheduler.MaxPages,
-					IncludePaths:    scheduler.IncludePaths,
-					ExcludePaths:    scheduler.ExcludePaths,
-					RequiredWorkers: scheduler.RequiredWorkers,
-					SourceType:      &sourceType,
-					SourceDetail:    &scheduler.ID,
-					SchedulerID:     &scheduler.ID,
+					Domain:                   domainName,
+					OrganisationID:           &scheduler.OrganisationID,
+					UseSitemap:               true,
+					Concurrency:              scheduler.Concurrency,
+					FindLinks:                scheduler.FindLinks,
+					AllowCrossSubdomainLinks: true,
+					MaxPages:                 scheduler.MaxPages,
+					IncludePaths:             scheduler.IncludePaths,
+					ExcludePaths:             scheduler.ExcludePaths,
+					RequiredWorkers:          scheduler.RequiredWorkers,
+					SourceType:               &sourceType,
+					SourceDetail:             &scheduler.ID,
+					SchedulerID:              &scheduler.ID,
 				}
 
 				// Create job (standard flow)

@@ -77,11 +77,12 @@ func main() {
 
 	// Set up job options
 	jobOptions := &jobs.JobOptions{
-		Domain:      "example.com",
-		Concurrency: 2,
-		FindLinks:   true,
-		MaxPages:    10,
-		UseSitemap:  true,
+		Domain:                   "example.com",
+		Concurrency:              2,
+		FindLinks:                true,
+		AllowCrossSubdomainLinks: true,
+		MaxPages:                 10,
+		UseSitemap:               true,
 	}
 
 	// Submit the job to the queue
