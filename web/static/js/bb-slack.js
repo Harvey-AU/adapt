@@ -30,54 +30,14 @@ function formatSlackDate(timestamp) {
   }
 }
 
-const INTEGRATION_REQUEST_TIMEOUT_MS = 15000;
-
-class IntegrationHttpError extends Error {
-  constructor(message, details = {}) {
-    super(message, { cause: details.cause });
-    this.name = "IntegrationHttpError";
-    this.status = details.status;
-    this.statusText = details.statusText;
-    this.url = details.url;
-    this.body = details.body;
-    this.context = details.context;
-  }
+const integrationHttp = window.BBIntegrationHttp;
+if (!integrationHttp) {
+  throw new Error(
+    "Missing integration HTTP helpers. Load /js/bb-integration-http.js before bb-slack.js."
+  );
 }
 
-function withTimeoutSignal(timeoutMs = INTEGRATION_REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => {
-    controller.abort("Request timed out");
-  }, timeoutMs);
-  return { signal: controller.signal, timeoutId };
-}
-
-async function fetchWithTimeout(url, options = {}, context = {}) {
-  const { signal, timeoutId } = withTimeoutSignal();
-  try {
-    return await fetch(url, { ...options, signal });
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new IntegrationHttpError("Request timed out", {
-        cause: error,
-        context,
-      });
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-function normaliseIntegrationError(response, body, context = {}) {
-  return new IntegrationHttpError(body || `HTTP ${response.status}`, {
-    status: response.status,
-    statusText: response.statusText,
-    url: response.url,
-    body,
-    context,
-  });
-}
+const { fetchWithTimeout, normaliseIntegrationError } = integrationHttp;
 
 /**
  * Initialise Slack integration UI handlers
