@@ -1,7 +1,20 @@
 (function () {
+  function promiseWithResolvers() {
+    if (typeof Promise.withResolvers === "function") {
+      return Promise.withResolvers();
+    }
+    let resolve;
+    let reject;
+    const promise = new Promise((resolveRef, rejectRef) => {
+      resolve = resolveRef;
+      reject = rejectRef;
+    });
+    return { promise, resolve, reject };
+  }
+
   let resolveNavReady = null;
   if (!window.BB_NAV_READY) {
-    const { promise, resolve } = Promise.withResolvers();
+    const { promise, resolve } = promiseWithResolvers();
     window.BB_NAV_READY = promise;
     resolveNavReady = resolve;
   }
