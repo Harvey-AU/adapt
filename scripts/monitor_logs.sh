@@ -13,6 +13,8 @@ OUTPUT_ROOT="logs"
 CLEANUP_OLD=true
 CLEANUP_DAYS=1
 CLEANUP_MODE="zip"
+PYTHON_CMD=""
+PYTHON_ARGS=()
 
 usage() {
     cat <<'USAGE'
@@ -130,6 +132,16 @@ fi
 if [[ "$CLEANUP_MODE" != "zip" && "$CLEANUP_MODE" != "delete" ]]; then
     echo "cleanup-mode must be 'zip' or 'delete'" >&2
     exit 1
+fi
+
+# Resolve a working Python interpreter for log processing helpers.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="python"
+elif command -v py >/dev/null 2>&1 && py -3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="py"
+    PYTHON_ARGS=(-3)
 fi
 
 # Auto-generate settings suffix with appropriate units
@@ -250,6 +262,9 @@ echo "App: $APP | Interval: ${INTERVAL}s | Samples: $SAMPLES | Iterations: $ITER
 echo "Run directory: $RUN_DIR" | tee -a "$LOG_FILE"
 echo "Raw logs: $RAW_DIR" | tee -a "$LOG_FILE"
 echo "Summaries: $RUN_DIR" | tee -a "$LOG_FILE"
+if [[ -z "$PYTHON_CMD" ]]; then
+    echo "Python not found; continuing with raw log capture only" | tee -a "$LOG_FILE"
+fi
 
 iteration=0
 
@@ -263,11 +278,13 @@ while true; do
     echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Iteration $iteration: capturing logs" | tee -a "$LOG_FILE"
 
     if flyctl logs --app "$APP" --no-tail 2>&1 | tail -n "$SAMPLES" > "$raw_file"; then
-        if ! python3 "$SCRIPT_DIR/process_logs.py" "$raw_file" "$summary_file" >> "$LOG_FILE" 2>&1; then
+        if [[ -z "$PYTHON_CMD" ]]; then
+            echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Captured raw logs only (Python unavailable)" | tee -a "$LOG_FILE"
+        elif ! env PYTHONUTF8=1 "$PYTHON_CMD" "${PYTHON_ARGS[@]}" "$SCRIPT_DIR/process_logs.py" "$raw_file" "$summary_file" >> "$LOG_FILE" 2>&1; then
             echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Failed to process logs (see output above)" | tee -a "$LOG_FILE"
         else
             # Run aggregation after each successful batch
-            python3 "$SCRIPT_DIR/aggregate_logs.py" "$RUN_DIR" >> "$LOG_FILE" 2>&1
+            env PYTHONUTF8=1 "$PYTHON_CMD" "${PYTHON_ARGS[@]}" "$SCRIPT_DIR/aggregate_logs.py" "$RUN_DIR" >> "$LOG_FILE" 2>&1
         fi
     else
         echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Failed to fetch logs from Fly; raw output stored in $raw_file" | tee -a "$LOG_FILE"
@@ -283,6 +300,10 @@ done
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Monitoring finished after $iteration iteration(s)" | tee -a "$LOG_FILE"
 
 # Final aggregation
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running final aggregation..." | tee -a "$LOG_FILE"
-python3 "$SCRIPT_DIR/aggregate_logs.py" "$RUN_DIR" >> "$LOG_FILE" 2>&1
-echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Aggregation complete" | tee -a "$LOG_FILE"
+if [[ -z "$PYTHON_CMD" ]]; then
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Skipping aggregation (Python unavailable)" | tee -a "$LOG_FILE"
+else
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Running final aggregation..." | tee -a "$LOG_FILE"
+    env PYTHONUTF8=1 "$PYTHON_CMD" "${PYTHON_ARGS[@]}" "$SCRIPT_DIR/aggregate_logs.py" "$RUN_DIR" >> "$LOG_FILE" 2>&1
+    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Aggregation complete" | tee -a "$LOG_FILE"
+fi

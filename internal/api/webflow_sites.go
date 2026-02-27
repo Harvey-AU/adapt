@@ -26,6 +26,7 @@ type WebflowCustomDomain struct {
 // WebflowSite represents a site from the Webflow API v2
 type WebflowSite struct {
 	ID            string                `json:"id"`
+	WorkspaceID   string                `json:"workspaceId,omitempty"`
 	DisplayName   string                `json:"displayName"`
 	ShortName     string                `json:"shortName"`
 	LastPublished string                `json:"lastPublished,omitempty"`
@@ -576,6 +577,11 @@ func (h *Handler) toggleSiteAutoPublish(w http.ResponseWriter, r *http.Request, 
 	var webhookID string
 
 	if req.Enabled {
+		if strings.TrimSpace(conn.WebflowWorkspaceID) == "" {
+			logger.Warn().Str("connection_id", req.ConnectionID).Msg("Blocked enabling auto-publish: missing workspace ID on connection")
+			BadRequest(w, r, "Webflow workspace not available for this connection. Reconnect to Webflow and ensure your workspace is accessible.")
+			return
+		}
 		// Register webhook with Webflow
 		webhookURL := fmt.Sprintf("%s/v1/webhooks/webflow/workspaces/%s", getAppURL(), conn.WebflowWorkspaceID)
 		newWebhookID, err := h.registerWebflowWebhook(ctx, token, siteID, webhookURL)

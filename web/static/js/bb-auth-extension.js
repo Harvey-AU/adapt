@@ -81,6 +81,14 @@ async function initializeAuthWithDataBinder(dataBinder, options = {}) {
  * @param {Object} dataBinder - BBDataBinder instance
  */
 function setupDashboardRefresh(dataBinder) {
+  const ACTIVE_JOB_STATUSES = new Set([
+    "running",
+    "pending",
+    "in_progress",
+    "in-progress",
+    "active",
+  ]);
+
   // Override the refresh method to load dashboard data
   dataBinder.refresh = async function () {
     // Only load dashboard data if user is authenticated
@@ -140,6 +148,14 @@ function setupDashboardRefresh(dataBinder) {
           ? new Date(job.started_at).toLocaleString()
           : "-",
       }));
+
+      this.hasRealtimeActiveJobs = processedJobs.some((job) =>
+        ACTIVE_JOB_STATUSES.has(String(job.status || "").toLowerCase())
+      );
+
+      if (fallbackPollingIntervalId) {
+        startFallbackPolling();
+      }
 
       // Clear any existing empty state before binding
       const existingEmptyState = document.querySelector(".bb-jobs-empty-state");
@@ -655,7 +671,8 @@ async function setupQuickAuth(dataBinder) {
 const TRANSACTION_VISIBILITY_DELAY_MS = 200;
 window.TRANSACTION_VISIBILITY_DELAY_MS = TRANSACTION_VISIBILITY_DELAY_MS;
 const SUBSCRIBE_RETRY_INTERVAL_MS = 1000;
-const FALLBACK_POLLING_INTERVAL_MS = 1000;
+const FALLBACK_POLLING_INTERVAL_ACTIVE_MS = 1000;
+const FALLBACK_POLLING_INTERVAL_IDLE_MS = 10000;
 const MAX_SUBSCRIBE_RETRIES = 15;
 const REALTIME_DEBOUNCE_MS = 250; // Throttle realtime notifications to max 4 refreshes per second
 
@@ -663,10 +680,18 @@ const REALTIME_DEBOUNCE_MS = 250; // Throttle realtime notifications to max 4 re
 let subscribeRetryCount = 0;
 let subscribeRetryTimeoutId = null;
 let fallbackPollingIntervalId = null;
+let fallbackPollingIntervalMs = null;
 let cleanupHandlerRegistered = false;
 let lastRealtimeRefresh = 0;
 let throttleTimeoutId = null;
 let isRefreshing = false;
+
+function getFallbackPollingIntervalMs() {
+  if (window.dataBinder?.hasRealtimeActiveJobs) {
+    return FALLBACK_POLLING_INTERVAL_ACTIVE_MS;
+  }
+  return FALLBACK_POLLING_INTERVAL_IDLE_MS;
+}
 
 /**
  * Throttled refresh for realtime notifications.
@@ -721,14 +746,24 @@ async function executeRealtimeRefresh() {
  * Start fallback polling when realtime connection fails
  */
 function startFallbackPolling() {
-  if (fallbackPollingIntervalId) {
-    return; // Already polling
+  const nextIntervalMs = getFallbackPollingIntervalMs();
+  if (
+    fallbackPollingIntervalId &&
+    fallbackPollingIntervalMs === nextIntervalMs
+  ) {
+    return;
   }
+
+  if (fallbackPollingIntervalId) {
+    clearInterval(fallbackPollingIntervalId);
+  }
+
+  fallbackPollingIntervalMs = nextIntervalMs;
   fallbackPollingIntervalId = setInterval(() => {
-    if (window.dataBinder) {
-      window.dataBinder.refresh();
+    if (window.dataBinder && !isRefreshing) {
+      executeRealtimeRefresh();
     }
-  }, FALLBACK_POLLING_INTERVAL_MS);
+  }, fallbackPollingIntervalMs);
 }
 
 /**
@@ -738,6 +773,7 @@ function clearFallbackPolling() {
   if (fallbackPollingIntervalId) {
     clearInterval(fallbackPollingIntervalId);
     fallbackPollingIntervalId = null;
+    fallbackPollingIntervalMs = null;
   }
 }
 

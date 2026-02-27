@@ -154,28 +154,29 @@ func (jm *JobManager) handleExistingJobs(ctx context.Context, domain string, use
 // createJobObject creates a new Job instance with the given options and normalized domain
 func createJobObject(options *JobOptions, normalisedDomain string) *Job {
 	return &Job{
-		ID:              uuid.New().String(),
-		Domain:          normalisedDomain,
-		UserID:          options.UserID,
-		OrganisationID:  options.OrganisationID,
-		Status:          JobStatusPending,
-		Progress:        0,
-		TotalTasks:      0,
-		CompletedTasks:  0,
-		FoundTasks:      0,
-		SitemapTasks:    0,
-		FailedTasks:     0,
-		CreatedAt:       time.Now().UTC(),
-		Concurrency:     options.Concurrency,
-		FindLinks:       options.FindLinks,
-		MaxPages:        options.MaxPages,
-		IncludePaths:    options.IncludePaths,
-		ExcludePaths:    options.ExcludePaths,
-		RequiredWorkers: options.RequiredWorkers,
-		SourceType:      options.SourceType,
-		SourceDetail:    options.SourceDetail,
-		SourceInfo:      options.SourceInfo,
-		SchedulerID:     options.SchedulerID,
+		ID:                       uuid.New().String(),
+		Domain:                   normalisedDomain,
+		UserID:                   options.UserID,
+		OrganisationID:           options.OrganisationID,
+		Status:                   JobStatusPending,
+		Progress:                 0,
+		TotalTasks:               0,
+		CompletedTasks:           0,
+		FoundTasks:               0,
+		SitemapTasks:             0,
+		FailedTasks:              0,
+		CreatedAt:                time.Now().UTC(),
+		Concurrency:              options.Concurrency,
+		FindLinks:                options.FindLinks,
+		MaxPages:                 options.MaxPages,
+		IncludePaths:             options.IncludePaths,
+		ExcludePaths:             options.ExcludePaths,
+		RequiredWorkers:          options.RequiredWorkers,
+		AllowCrossSubdomainLinks: options.AllowCrossSubdomainLinks,
+		SourceType:               options.SourceType,
+		SourceDetail:             options.SourceDetail,
+		SourceInfo:               options.SourceInfo,
+		SchedulerID:              options.SchedulerID,
 	}
 }
 
@@ -199,14 +200,14 @@ func (jm *JobManager) setupJobDatabase(ctx context.Context, job *Job, normalised
 			`INSERT INTO jobs (
 				id, domain_id, user_id, organisation_id, status, progress, total_tasks, completed_tasks, failed_tasks, skipped_tasks,
 				created_at, concurrency, find_links, include_paths, exclude_paths,
-				required_workers, max_pages,
+				required_workers, max_pages, allow_cross_subdomain_links,
 				found_tasks, sitemap_tasks, source_type, source_detail, source_info, scheduler_id
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
 			job.ID, domainID, job.UserID, job.OrganisationID, string(job.Status), job.Progress,
 			job.TotalTasks, job.CompletedTasks, job.FailedTasks, job.SkippedTasks,
 			job.CreatedAt, job.Concurrency, job.FindLinks,
 			db.Serialise(job.IncludePaths), db.Serialise(job.ExcludePaths),
-			job.RequiredWorkers, job.MaxPages,
+			job.RequiredWorkers, job.MaxPages, job.AllowCrossSubdomainLinks,
 			job.FoundTasks, job.SitemapTasks, job.SourceType, job.SourceDetail, job.SourceInfo,
 			job.SchedulerID,
 		)
@@ -305,23 +306,33 @@ func (jm *JobManager) createManualRootTask(ctx context.Context, job *Job, domain
 	err := jm.dbQueue.Execute(ctx, func(tx *sql.Tx) error {
 		var pageID int
 		err := tx.QueryRowContext(ctx, `
-			INSERT INTO pages (domain_id, path)
-			VALUES ($1, $2)
-			ON CONFLICT (domain_id, path) DO UPDATE SET path = EXCLUDED.path
-			RETURNING id
-		`, domainID, rootPath).Scan(&pageID)
+				INSERT INTO pages (domain_id, host, path)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (domain_id, host, path) DO UPDATE SET path = EXCLUDED.path
+				RETURNING id
+			`, domainID, job.Domain, rootPath).Scan(&pageID)
 
 		if err != nil {
 			return fmt.Errorf("failed to create page record for root path: %w", err)
 		}
 
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO domain_hosts (domain_id, host, is_primary, last_seen_at)
+			VALUES ($1, $2, TRUE, NOW())
+			ON CONFLICT (domain_id, host) DO UPDATE
+			SET is_primary = TRUE,
+				last_seen_at = NOW()
+		`, domainID, job.Domain); err != nil {
+			return fmt.Errorf("failed to upsert domain host for root path: %w", err)
+		}
+
 		// Enqueue the root URL with its page ID
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO tasks (
-				id, job_id, page_id, path, status, created_at, retry_count,
+				id, job_id, page_id, host, path, status, created_at, retry_count,
 				source_type, source_url
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		`, uuid.New().String(), job.ID, pageID, rootPath, "pending", time.Now().UTC(), 0, "manual", "")
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`, uuid.New().String(), job.ID, pageID, job.Domain, rootPath, "pending", time.Now().UTC(), 0, "manual", "")
 
 		if err != nil {
 			return fmt.Errorf("failed to enqueue task for root path: %w", err)
@@ -822,7 +833,7 @@ func (jm *JobManager) enqueueURLsForJob(ctx context.Context, jobID, domain strin
 	}
 
 	// Create page records and get their IDs
-	pageIDs, paths, err := db.CreatePageRecords(ctx, jm.dbQueue, domainID, domain, urls)
+	pageIDs, hosts, paths, err := db.CreatePageRecords(ctx, jm.dbQueue, domainID, domain, urls)
 	if err != nil {
 		return fmt.Errorf("failed to create page records: %w", err)
 	}
@@ -832,6 +843,7 @@ func (jm *JobManager) enqueueURLsForJob(ctx context.Context, jobID, domain strin
 	for i, pageID := range pageIDs {
 		pagesWithPriority[i] = db.Page{
 			ID:       pageID,
+			Host:     hosts[i],
 			Path:     paths[i],
 			Priority: 0.1, // Default sitemap priority
 		}

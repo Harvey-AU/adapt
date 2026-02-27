@@ -2,6 +2,19 @@
   const loadedScripts = new Map();
   window.BB_APP = window.BB_APP || {};
 
+  function promiseWithResolvers() {
+    if (typeof Promise.withResolvers === "function") {
+      return Promise.withResolvers();
+    }
+    let resolve;
+    let reject;
+    const promise = new Promise((resolveRef, rejectRef) => {
+      resolve = resolveRef;
+      reject = rejectRef;
+    });
+    return { promise, resolve, reject };
+  }
+
   function loadScript(src, attrs = {}) {
     if (loadedScripts.has(src)) {
       return loadedScripts.get(src);
@@ -19,39 +32,45 @@
         loadedScripts.set(src, promise);
         return promise;
       }
-      const promise = new Promise((resolve, reject) => {
-        const onLoad = () => {
-          existing.removeEventListener("load", onLoad);
-          existing.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = (err) => {
-          existing.removeEventListener("load", onLoad);
-          existing.removeEventListener("error", onError);
-          reject(err);
-        };
-        existing.addEventListener("load", onLoad);
-        existing.addEventListener("error", onError);
-      });
+      const {
+        promise,
+        resolve: resolveExisting,
+        reject: rejectExisting,
+      } = promiseWithResolvers();
+      const onLoad = () => {
+        existing.removeEventListener("load", onLoad);
+        existing.removeEventListener("error", onError);
+        resolveExisting();
+      };
+      const onError = (err) => {
+        existing.removeEventListener("load", onLoad);
+        existing.removeEventListener("error", onError);
+        rejectExisting(err);
+      };
+      existing.addEventListener("load", onLoad);
+      existing.addEventListener("error", onError);
       loadedScripts.set(src, promise);
       return promise;
     }
 
-    const promise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.dataset.bbLoader = "true";
-      Object.entries(attrs).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        script.setAttribute(key, value);
-      });
-      script.onload = () => {
-        script.dataset.bbReady = "true";
-        resolve();
-      };
-      script.onerror = (error) => reject(error);
-      document.head.appendChild(script);
+    const {
+      promise,
+      resolve: resolveScript,
+      reject: rejectScript,
+    } = promiseWithResolvers();
+    const script = document.createElement("script");
+    script.src = src;
+    script.dataset.bbLoader = "true";
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      script.setAttribute(key, value);
     });
+    script.onload = () => {
+      script.dataset.bbReady = "true";
+      resolveScript();
+    };
+    script.onerror = (error) => rejectScript(error);
+    document.head.appendChild(script);
 
     loadedScripts.set(src, promise);
     return promise;
@@ -64,7 +83,9 @@
     try {
       await loadScript("/config.js");
     } catch (error) {
-      throw new Error("Failed to load /config.js: " + error.message);
+      throw new Error("Failed to load /config.js", {
+        cause: error,
+      });
     }
     if (!window.BBB_CONFIG) {
       throw new Error("BBB_CONFIG missing after loading /config.js");
@@ -129,10 +150,23 @@
     await ensureSupabase();
     const isCliAuthPage = Boolean(window.BB_APP?.cliAuth);
     const isAuthCallbackPage = Boolean(window.BB_APP?.authCallback);
+    const isExtensionAuthPage = Boolean(window.BB_APP?.extensionAuth);
 
-    // Callback/CLI auth pages must not block on optional third-party scripts.
-    if (!isCliAuthPage && !isAuthCallbackPage) {
-      await Promise.all([ensurePasswordStrength(), ensureTurnstile()]);
+    // Callback/CLI/extension auth pages must not block on optional third-party scripts.
+    if (!isCliAuthPage && !isAuthCallbackPage && !isExtensionAuthPage) {
+      const optionalScriptResults = await Promise.allSettled([
+        ensurePasswordStrength(),
+        ensureTurnstile(),
+      ]);
+      optionalScriptResults.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const scriptName = index === 0 ? "password-strength" : "turnstile";
+          console.warn(
+            `Optional script failed to load: ${scriptName}`,
+            result.reason
+          );
+        }
+      });
     }
     await ensureAuthBundle();
 
@@ -155,6 +189,11 @@
 
     if (isAuthCallbackPage && window.BBAuth?.initAuthCallbackPage) {
       window.BBAuth.initAuthCallbackPage();
+      return;
+    }
+
+    if (isExtensionAuthPage && window.BBAuth?.initExtensionAuthPage) {
+      window.BBAuth.initExtensionAuthPage();
       return;
     }
 
@@ -189,10 +228,14 @@
   let orgReadyReject = null;
   let orgInitialised = false;
 
-  window.BB_ORG_READY = new Promise((resolve, reject) => {
-    orgReadyResolve = resolve;
-    orgReadyReject = reject;
-  });
+  const {
+    promise: orgReady,
+    resolve: orgReadyResolveRef,
+    reject: orgReadyRejectRef,
+  } = promiseWithResolvers();
+  window.BB_ORG_READY = orgReady;
+  orgReadyResolve = orgReadyResolveRef;
+  orgReadyReject = orgReadyRejectRef;
 
   /**
    * Initialise the active organisation. Called once after auth is confirmed.
@@ -348,7 +391,9 @@
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || "Failed to switch organisation");
+      throw new Error(err.message || "Failed to switch organisation", {
+        cause: { status: response.status, payload: err },
+      });
     }
 
     const switchData = await response.json();
@@ -397,10 +442,17 @@
   });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      coreReady.catch((err) => {
-        console.error("Core initialization failed after DOMContentLoaded", err);
-      });
-    });
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        coreReady.catch((err) => {
+          console.error(
+            "Core initialisation failed after DOMContentLoaded",
+            err
+          );
+        });
+      },
+      { once: true }
+    );
   }
 })();

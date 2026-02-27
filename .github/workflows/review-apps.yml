@@ -8,6 +8,8 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
+      - "webflow-designer-extension/**"
+      - "webflow-designer-extension-cli/**"
       - "LICENSE"
       - ".gitignore"
       - "CHANGELOG.md"
@@ -125,6 +127,19 @@ jobs:
 
           # Create review app name
           APP_NAME="adapt-pr-${{ github.event.number }}"
+          SUPABASE_AUTH_URL="${{ secrets.SUPABASE_AUTH_URL }}"
+          if [ -z "$SUPABASE_AUTH_URL" ]; then
+            SUPABASE_AUTH_URL="https://adapt.auth.goodnative.co"
+          fi
+          SUPABASE_FALLBACK_AUTH_URL="${{ secrets.SUPABASE_FALLBACK_AUTH_URL }}"
+          SUPABASE_LEGACY_AUTH_URL="${{ secrets.SUPABASE_LEGACY_AUTH_URL }}"
+          AUTH_URL_FLAGS=(SUPABASE_AUTH_URL="$SUPABASE_AUTH_URL")
+          if [ -n "$SUPABASE_FALLBACK_AUTH_URL" ]; then
+            AUTH_URL_FLAGS+=(SUPABASE_FALLBACK_AUTH_URL="$SUPABASE_FALLBACK_AUTH_URL")
+          fi
+          if [ -n "$SUPABASE_LEGACY_AUTH_URL" ]; then
+            AUTH_URL_FLAGS+=(SUPABASE_LEGACY_AUTH_URL="$SUPABASE_LEGACY_AUTH_URL")
+          fi
 
           # Check if app exists, create if not
           if ! flyctl apps list | grep -q "$APP_NAME"; then
@@ -141,6 +156,7 @@ jobs:
             flyctl secrets set \
               DATABASE_URL="$DB_URL" \
               DATABASE_DIRECT_URL="$DIRECT_URL" \
+              "${AUTH_URL_FLAGS[@]}" \
               SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
@@ -154,12 +170,14 @@ jobs:
               PADDLE_API_KEY="${{ secrets.PADDLE_API_KEY }}" \
               PADDLE_WEBHOOK_SECRET="${{ secrets.PADDLE_WEBHOOK_SECRET }}" \
               GOOGLE_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/google/callback" \
+              WEBFLOW_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/webflow/callback" \
               APP_URL="https://$APP_NAME.fly.dev" \
               SETTINGS_URL="https://$APP_NAME.fly.dev/settings" \
               --app $APP_NAME --stage
           else
             flyctl secrets set \
               DATABASE_URL="$DB_URL" \
+              "${AUTH_URL_FLAGS[@]}" \
               SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
@@ -173,6 +191,7 @@ jobs:
               PADDLE_API_KEY="${{ secrets.PADDLE_API_KEY }}" \
               PADDLE_WEBHOOK_SECRET="${{ secrets.PADDLE_WEBHOOK_SECRET }}" \
               GOOGLE_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/google/callback" \
+              WEBFLOW_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/webflow/callback" \
               APP_URL="https://$APP_NAME.fly.dev" \
               SETTINGS_URL="https://$APP_NAME.fly.dev/settings" \
               --app $APP_NAME --stage

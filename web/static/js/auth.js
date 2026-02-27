@@ -77,6 +77,9 @@ const PUBLIC_ROUTE_PATHS = new Set([
   "/welcome/invite",
   "/welcome/invite/",
   "/cli-login.html",
+  "/extension-auth",
+  "/extension-auth/",
+  "/extension-auth.html",
   "/auth-modal.html",
   "/auth/callback",
   "/auth/callback/",
@@ -272,6 +275,18 @@ function initialiseSupabase() {
  * Load shared authentication modal HTML
  */
 async function loadAuthModal() {
+  const modalTarget = document.getElementById("authModalContainer");
+  if (!modalTarget) {
+    const error = new Error("Auth modal container missing");
+    console.error("Failed to load auth modal:", error);
+    if (window.Sentry) {
+      window.Sentry.captureException(error, {
+        tags: { component: "auth", action: "load_modal" },
+      });
+    }
+    return false;
+  }
+
   try {
     const response = await fetch("/auth-modal.html", { cache: "no-store" });
 
@@ -282,7 +297,7 @@ async function loadAuthModal() {
     }
 
     const modalHTML = await response.text();
-    document.getElementById("authModalContainer").innerHTML = modalHTML;
+    modalTarget.innerHTML = modalHTML;
 
     // Set default to login form for dashboard
     setTimeout(() => {
@@ -297,7 +312,18 @@ async function loadAuthModal() {
         tags: { component: "auth", action: "load_modal" },
       });
     }
+    modalTarget.innerHTML = `
+      <div class="bb-modal show" role="dialog" aria-live="assertive" aria-label="Sign in is unavailable">
+        <div class="bb-modal-content">
+          <p>Sign-in is currently unavailable. Please refresh the page and try again.</p>
+          <button type="button" class="bb-button bb-button-primary" onclick="window.location.reload()">Retry</button>
+        </div>
+      </div>
+    `;
+    return false;
   }
+
+  return true;
 }
 
 function waitForAuthScript(pollIntervalMs = 50, timeoutMs = 12000) {
@@ -328,6 +354,8 @@ function waitForAuthScript(pollIntervalMs = 50, timeoutMs = 12000) {
  */
 async function handleAuthCallback() {
   try {
+    const isExtensionAuthFlow = Boolean(window.BB_APP?.extensionAuth);
+
     // Check for error parameters in URL (from OAuth failures)
     const urlParams = new URLSearchParams(window.location.search);
     const hasOAuthCallbackParams =
@@ -342,7 +370,11 @@ async function handleAuthCallback() {
       console.error("OAuth error:", error, errorDescription);
       const inviteToken =
         urlParams.get("invite_token") || getPendingInviteToken();
-      if (inviteToken && window.location.pathname !== "/welcome/invite") {
+      if (
+        !isExtensionAuthFlow &&
+        inviteToken &&
+        window.location.pathname !== "/welcome/invite"
+      ) {
         const inviteUrl = new URL(
           `${window.location.origin}/welcome/invite?invite_token=${encodeURIComponent(inviteToken)}`
         );
@@ -381,6 +413,7 @@ async function handleAuthCallback() {
       if (session) {
         const pendingInviteToken = getPendingInviteToken();
         if (
+          !isExtensionAuthFlow &&
           pendingInviteToken &&
           window.location.pathname !== "/welcome/invite"
         ) {
@@ -391,7 +424,7 @@ async function handleAuthCallback() {
           window.location.replace(inviteUrl.toString());
           return false;
         }
-        if (isOAuthCallbackReturn) {
+        if (!isExtensionAuthFlow && isOAuthCallbackReturn) {
           const returnTarget = getPostAuthReturnTarget();
           if (returnTarget) {
             clearPostAuthReturnTarget();
@@ -421,6 +454,7 @@ async function handleAuthCallback() {
       if (session) {
         const pendingInviteToken = getPendingInviteToken();
         if (
+          !isExtensionAuthFlow &&
           hasOAuthCallbackParams &&
           pendingInviteToken &&
           window.location.pathname !== "/welcome/invite"
@@ -432,7 +466,7 @@ async function handleAuthCallback() {
           window.location.replace(inviteUrl.toString());
           return false;
         }
-        if (isOAuthCallbackReturn) {
+        if (!isExtensionAuthFlow && isOAuthCallbackReturn) {
           const returnTarget = getPostAuthReturnTarget();
           if (returnTarget) {
             clearPostAuthReturnTarget();
@@ -734,26 +768,34 @@ async function setUserAvatar(target, email, initials, options = {}) {
     existingImg.remove();
   }
 
-  target.textContent = initials || "?";
+  target.textContent = initials ?? "?";
 
-  const gravatarUrl = await getGravatarUrl(email, options.size || 80);
+  const gravatarUrl = await getGravatarUrl(email, options.size ?? 80);
   if (!gravatarUrl) return;
 
   const avatarImg = document.createElement("img");
   avatarImg.src = gravatarUrl;
-  avatarImg.alt = options.alt || "User avatar";
+  avatarImg.alt = options.alt ?? "User avatar";
   avatarImg.loading = "lazy";
   avatarImg.decoding = "async";
-  avatarImg.addEventListener("load", () => {
-    target.textContent = "";
-    target.appendChild(avatarImg);
-  });
-  avatarImg.addEventListener("error", () => {
-    if (avatarImg.parentNode) {
-      avatarImg.parentNode.removeChild(avatarImg);
-    }
-    target.textContent = initials || "?";
-  });
+  avatarImg.addEventListener(
+    "load",
+    () => {
+      target.textContent = "";
+      target.appendChild(avatarImg);
+    },
+    { once: true }
+  );
+  avatarImg.addEventListener(
+    "error",
+    () => {
+      if (avatarImg.parentNode) {
+        avatarImg.parentNode.removeChild(avatarImg);
+      }
+      target.textContent = initials ?? "?";
+    },
+    { once: true }
+  );
 }
 
 async function getGravatarUrl(email, size) {
@@ -764,7 +806,7 @@ async function getGravatarUrl(email, size) {
   const data = encoder.encode(normalised);
   try {
     const digest = await window.crypto.subtle.digest("SHA-256", data);
-    const hash = Array.from(new Uint8Array(digest))
+    const hash = [...new Uint8Array(digest)]
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     const params = new URLSearchParams({
@@ -1243,7 +1285,7 @@ async function handlePasswordReset(event) {
  * Handle social login (Google, GitHub)
  * @param {string} provider - OAuth provider name
  */
-async function handleSocialLogin(provider) {
+async function handleSocialLogin(provider, options = {}) {
   showAuthLoading();
   clearAuthError();
 
@@ -1257,10 +1299,15 @@ async function handleSocialLogin(provider) {
       return getOAuthCallbackURL({ invite_token: inviteToken || undefined });
     };
 
+    const redirectOverride =
+      options.redirectTo ||
+      window.BB_APP?.oauthRedirectOverride ||
+      (window.BB_APP?.extensionAuth ? window.location.href : "");
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: getOAuthRedirectTarget(),
+        redirectTo: redirectOverride || getOAuthRedirectTarget(),
       },
     });
 
@@ -1277,6 +1324,10 @@ async function handleSocialLogin(provider) {
     }
     showAuthError(error.message || `${provider} login failed.`);
     hideAuthLoading();
+  } finally {
+    if (window.BB_APP?.oauthRedirectOverride) {
+      delete window.BB_APP.oauthRedirectOverride;
+    }
   }
 }
 
@@ -1900,7 +1951,9 @@ function initCliAuthPage() {
     } = await supabase.auth.getSession();
 
     if (error || !session) {
-      throw new Error(error?.message || "Unable to read Supabase session");
+      throw new Error(error?.message || "Unable to read Supabase session", {
+        cause: error,
+      });
     }
 
     const response = await fetch(callbackUrl, {
@@ -2029,6 +2082,209 @@ function initCliAuthPage() {
   })();
 }
 
+function isValidExtensionTargetOrigin(rawOrigin) {
+  if (!rawOrigin) return false;
+  try {
+    const parsed = new URL(rawOrigin);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return false;
+    }
+
+    // Allow extension origins used by Webflow dev/test workflows and custom
+    // preview/deployment hosts.
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.endsWith(".webflow-ext.com")
+    ) {
+      return true;
+    }
+
+    // Allow explicit deploy preview URLs and staging hosts used by the adapter.
+    return host.endsWith(".fly.dev");
+  } catch (_error) {
+    return false;
+  }
+}
+
+function initExtensionAuthPage() {
+  const params = new URLSearchParams(window.location.search);
+  const targetOrigin = params.get("origin") || "";
+  const extensionState =
+    params.get("extension_state") || params.get("state") || "";
+  const statusEl = document.getElementById("extensionAuthStatus");
+  const modalContainer = document.getElementById("authModalContainer");
+  const reopenButton = document.getElementById("reopenModalBtn");
+
+  if (!statusEl || !modalContainer) {
+    console.warn("Extension auth: required elements missing");
+    return;
+  }
+
+  function setStatus(message, isError = false) {
+    statusEl.textContent = message;
+    statusEl.classList.toggle("error", Boolean(isError));
+  }
+
+  if (!window.opener || window.opener.closed) {
+    setStatus(
+      "This login window must be opened from the Webflow extension.",
+      true
+    );
+    return;
+  }
+
+  if (!isValidExtensionTargetOrigin(targetOrigin)) {
+    setStatus("Invalid extension origin. Please reopen sign-in.", true);
+    return;
+  }
+
+  // Best-effort validation of the opener origin. Browsers can omit referrer
+  // headers in popup flows, so we no longer fail closed on missing referrer.
+  try {
+    const referrerOrigin = document.referrer
+      ? new URL(document.referrer).origin
+      : "";
+    if (referrerOrigin && referrerOrigin !== targetOrigin) {
+      setStatus("Origin mismatch. Please relaunch from the extension.", true);
+      return;
+    }
+  } catch (_error) {
+    setStatus("Unable to validate opener origin. Please relaunch.", true);
+    return;
+  }
+
+  if (!initialiseSupabase()) {
+    setStatus("Supabase initialisation failed. Please retry.", true);
+    return;
+  }
+
+  const postAuthMessage = (message) => {
+    try {
+      window.opener.postMessage(
+        {
+          source: "bbb-extension-auth",
+          state: extensionState,
+          extensionState,
+          ...message,
+        },
+        targetOrigin
+      );
+      return true;
+    } catch (error) {
+      console.error("Extension auth: postMessage failed", error);
+      return false;
+    }
+  };
+
+  const closePopupSoon = () => {
+    window.setTimeout(() => {
+      window.close();
+    }, 350);
+  };
+
+  async function sendSessionToExtension() {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error || !session?.access_token || !session.user) {
+      throw new Error(error?.message || "No active session found", {
+        cause: error,
+      });
+    }
+
+    const registered = await registerUserWithBackend(session.user);
+    if (!registered) {
+      console.warn("Account setup could not be completed; continuing sign-in");
+    }
+
+    const posted = postAuthMessage({
+      type: "success",
+      accessToken: session.access_token,
+      registered,
+      user: {
+        id: session.user.id,
+        email: session.user.email || "",
+      },
+    });
+
+    if (!posted) {
+      throw new Error("Could not communicate with extension");
+    }
+
+    setStatus("Connected. Returning to extension…");
+    closePopupSoon();
+  }
+
+  function overrideHandleAuthSuccess() {
+    window.handleAuthSuccess = async function () {
+      try {
+        setStatus("Auth successful. Finalising connection…");
+        await sendSessionToExtension();
+      } catch (error) {
+        console.error("Extension auth success handler failed:", error);
+        setStatus(
+          error?.message || "Failed to complete connection. Please try again.",
+          true
+        );
+      }
+    };
+  }
+
+  if (reopenButton) {
+    reopenButton.addEventListener("click", () => {
+      if (typeof window.showAuthModal === "function") {
+        window.showAuthModal();
+        setStatus("Sign-in modal reopened.");
+      }
+    });
+  }
+
+  (async () => {
+    try {
+      // Process OAuth callback params/hash if returning from provider.
+      await handleAuthCallback();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        setStatus("Existing session found. Connecting extension…");
+        await sendSessionToExtension();
+        return;
+      }
+
+      await loadAuthModal();
+      await waitForAuthScript();
+      if (typeof window.setupAuthHandlers === "function") {
+        window.setupAuthHandlers();
+      }
+      overrideHandleAuthSuccess();
+      if (typeof window.showLoginForm === "function") {
+        window.showLoginForm();
+      }
+      if (typeof window.showAuthModal === "function") {
+        window.showAuthModal();
+      }
+      setStatus("Sign in or create your account to connect this extension.");
+    } catch (error) {
+      console.error("Extension auth initialisation failed:", error);
+      postAuthMessage({
+        type: "error",
+        message:
+          error?.message || "Unable to start sign-in flow. Please try again.",
+      });
+      setStatus(
+        error?.message || "Unable to start sign-in flow. Please try again.",
+        true
+      );
+    }
+  })();
+}
+
 // CAPTCHA success callback (global function)
 window.onTurnstileSuccess = function (token) {
   captchaToken = token;
@@ -2074,7 +2330,7 @@ if (typeof module !== "undefined" && module.exports) {
     defaultHandleAuthSuccess,
     initAuthCallbackPage,
     initCliAuthPage,
-    initAuthCallbackPage,
+    initExtensionAuthPage,
     resumeCliAuthFromStorage,
     setUserAvatar,
     getGravatarUrl,
@@ -2115,6 +2371,7 @@ if (typeof module !== "undefined" && module.exports) {
     handleLogout,
     initAuthCallbackPage,
     initCliAuthPage,
+    initExtensionAuthPage,
     resumeCliAuthFromStorage,
     clearPendingInviteToken,
     setUserAvatar,
@@ -2151,6 +2408,7 @@ if (typeof module !== "undefined" && module.exports) {
   window.handleLogout = handleLogout;
   window.handleAuthSuccess = defaultHandleAuthSuccess;
   window.initCliAuthPage = initCliAuthPage;
+  window.initExtensionAuthPage = initExtensionAuthPage;
   window.initAuthCallbackPage = initAuthCallbackPage;
   window.resumeCliAuthFromStorage = resumeCliAuthFromStorage;
   window.clearPendingInviteToken = clearPendingInviteToken;

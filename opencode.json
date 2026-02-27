@@ -1,0 +1,75 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md", "CLAUDE.md", "SECURITY.md"],
+  "command": {
+    "security-check": {
+      "description": "Run mandatory security gates",
+      "template": "Run ./scripts/security-check.sh, summarise any failures by tool, and propose the smallest safe fixes first."
+    },
+    "monitor-fly": {
+      "description": "Collect and summarise Fly logs",
+      "template": "Run ./scripts/monitor_logs.sh with suitable arguments from $ARGUMENTS if provided. Summarise critical patterns, error spikes, and likely causes."
+    },
+    "load-test": {
+      "description": "Run scripted load test safely",
+      "template": "Run ./scripts/generate-test-jobs.sh using $ARGUMENTS when provided. Confirm prerequisites first, avoid exposing tokens, and summarise outcomes and risk signals."
+    }
+  },
+  "mcp": {
+    "serena": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--from",
+        "serena-agent",
+        "serena",
+        "start-mcp-server",
+        "--transport",
+        "stdio",
+        "--project",
+        "."
+      ],
+      "enabled": true
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true,
+      "headers": {
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      }
+    },
+    "sentry": {
+      "type": "remote",
+      "url": "https://mcp.sentry.dev/mcp",
+      "enabled": true,
+      "oauth": {}
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "go test*": "allow",
+      "go vet*": "allow",
+      "go fmt*": "allow",
+      "gofmt *": "allow",
+      "npm test*": "allow",
+      "npm run test*": "allow",
+      "npm run lint*": "allow",
+      "npx prettier*": "allow",
+      "npx eslint*": "allow"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  },
+  "plugin": []
+}

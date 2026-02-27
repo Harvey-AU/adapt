@@ -41,6 +41,20 @@ function formatWebflowDate(timestamp) {
   }
 }
 
+var integrationHttp = window.BBIntegrationHttp;
+if (
+  !integrationHttp ||
+  typeof integrationHttp.fetchWithTimeout !== "function" ||
+  typeof integrationHttp.normaliseIntegrationError !== "function"
+) {
+  throw new Error(
+    "Missing or incompatible integration HTTP helpers. Load /js/bb-integration-http.js before bb-webflow.js."
+  );
+}
+
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
+
 /**
  * Initialise Webflow integration UI handlers
  */
@@ -267,19 +281,24 @@ async function disconnectWebflow(connectionId) {
       showWebflowError("Not authenticated. Please sign in.");
       return;
     }
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/${encodeURIComponent(connectionId)}`,
       {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "webflow", action: "disconnect", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "disconnect",
+        connectionId,
+      });
     }
 
     showWebflowSuccess("Webflow disconnected");
@@ -351,11 +370,54 @@ function handleWebflowOAuthCallback() {
 
     // Load connections (which will also load sites)
     loadWebflowConnections();
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: true,
+        setup: webflowSetup === "true",
+        integration: "webflow",
+        connectionId,
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection message to opener",
+          error
+        );
+      }
+
+      window.setTimeout(() => {
+        window.close();
+      }, 150);
+    }
   } else if (webflowError) {
     showWebflowError(`Failed to connect Webflow: ${webflowError}`);
     const url = new URL(window.location.href);
     url.searchParams.delete("webflow_error");
     window.history.replaceState({}, "", url.toString());
+
+    if (window.opener && !window.opener.closed) {
+      const payload = {
+        source: "bbb-webflow-connect",
+        type: "webflow-connect-complete",
+        connected: false,
+        error: webflowError,
+        integration: "webflow",
+      };
+
+      try {
+        window.opener.postMessage(payload, "*");
+      } catch (error) {
+        console.error(
+          "Failed to post Webflow connection error to opener",
+          error
+        );
+      }
+    }
   }
 }
 
@@ -410,18 +472,23 @@ async function loadWebflowSites(connectionId, page = 1) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/${encodeURIComponent(connectionId)}/sites`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "webflow", action: "list-sites", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "list-sites",
+        connectionId,
+      });
     }
 
     const json = await response.json();
@@ -510,7 +577,7 @@ function renderWebflowSites(page = 1) {
     // Set schedule dropdown value
     const scheduleSelect = clone.querySelector(".site-schedule");
     if (scheduleSelect) {
-      scheduleSelect.value = site.schedule_interval_hours || "";
+      scheduleSelect.value = site.schedule_interval_hours ?? "";
       scheduleSelect.dataset.siteId = site.webflow_site_id;
       scheduleSelect.dataset.connectionId = webflowSitesState.connectionId;
       scheduleSelect.addEventListener("change", handleScheduleChange);
@@ -563,7 +630,7 @@ async function handleScheduleChange(event) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/schedule`,
       {
         method: "PUT",
@@ -575,12 +642,18 @@ async function handleScheduleChange(event) {
           connection_id: connectionId,
           schedule_interval_hours: interval,
         }),
-      }
+      },
+      { module: "webflow", action: "update-schedule", siteId, connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "update-schedule",
+        siteId,
+        connectionId,
+      });
     }
 
     // Update local state
@@ -589,6 +662,30 @@ async function handleScheduleChange(event) {
     );
     if (site) {
       site.schedule_interval_hours = interval;
+    }
+
+    if (interval) {
+      let autoPublishEnabled = false;
+      try {
+        await setWebflowAutoPublishForSite(siteId, connectionId, true);
+        autoPublishEnabled = true;
+      } catch (autoPublishError) {
+        console.error(
+          "Failed to auto-enable run-on-publish:",
+          autoPublishError
+        );
+        showWebflowError(
+          "Schedule saved, but run-on-publish could not be enabled automatically."
+        );
+      }
+      if (site) {
+        site.auto_publish_enabled = autoPublishEnabled;
+      }
+      const row = select.closest(".webflow-site-row");
+      const rowToggle = row?.querySelector(".site-autopublish");
+      if (rowToggle) {
+        rowToggle.checked = autoPublishEnabled;
+      }
     }
 
     // Brief visual feedback
@@ -604,10 +701,44 @@ async function handleScheduleChange(event) {
       (s) => s.webflow_site_id === siteId
     );
     if (site) {
-      select.value = site.schedule_interval_hours || "";
+      select.value = site.schedule_interval_hours ?? "";
     }
   } finally {
     select.disabled = false;
+  }
+}
+
+async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
+  const { data: { session } = {} } = await window.supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    throw new Error("Not authenticated. Please sign in.");
+  }
+
+  const response = await fetchWithTimeout(
+    `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        connection_id: connectionId,
+        enabled,
+      }),
+    },
+    { module: "webflow", action: "set-auto-publish", siteId, connectionId }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw normaliseIntegrationError(response, text, {
+      module: "webflow",
+      action: "set-auto-publish",
+      siteId,
+      connectionId,
+    });
   }
 }
 
@@ -649,7 +780,7 @@ async function handleAutoPublishToggle(event) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
       {
         method: "PUT",
@@ -661,12 +792,18 @@ async function handleAutoPublishToggle(event) {
           connection_id: connectionId,
           enabled: enabled,
         }),
-      }
+      },
+      { module: "webflow", action: "toggle-auto-publish", siteId, connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "toggle-auto-publish",
+        siteId,
+        connectionId,
+      });
     }
 
     // Update local state

@@ -457,6 +457,9 @@ function formatTasksForBinding(tasks, defaultDomain) {
     const statusRaw = (task.status || "unknown").toString().toLowerCase();
     return {
       path: task.path || "/",
+      display_path: task.host
+        ? `${task.host}${task.path || "/"}`
+        : task.path || "/",
       url: buildTaskUrl(task, defaultDomain),
       status: statusRaw,
       status_label: statusRaw.replace(/_/g, " ").toUpperCase(),
@@ -509,7 +512,7 @@ function renderTasksTable(tasks, showAnalytics) {
         <tr>
           <td>
             <a href="${escapeHTML(task.url)}" target="_blank" rel="noopener noreferrer">
-              <code>${escapeHTML(task.path)}</code>
+              <code>${escapeHTML(task.display_path)}</code>
             </a>
           </td>
           <td><span class="status-pill ${escapeHTML(task.status)}">${escapeHTML(task.status_label)}</span></td>

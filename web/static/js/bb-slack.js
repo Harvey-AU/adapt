@@ -30,6 +30,20 @@ function formatSlackDate(timestamp) {
   }
 }
 
+var integrationHttp = window.BBIntegrationHttp;
+if (
+  !integrationHttp ||
+  typeof integrationHttp.fetchWithTimeout !== "function" ||
+  typeof integrationHttp.normaliseIntegrationError !== "function"
+) {
+  throw new Error(
+    "Missing or incompatible integration HTTP helpers. Load /js/bb-integration-http.js before bb-slack.js."
+  );
+}
+
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
+
 /**
  * Initialise Slack integration UI handlers
  */
@@ -189,22 +203,32 @@ async function disconnectSlackWorkspace(connectionId) {
   }
 
   try {
-    // Use raw fetch for DELETE since it returns no body
+    // Use fetchWithTimeout for DELETE; response body is not required.
     const session = await window.supabase.auth.getSession();
     const token = session?.data?.session?.access_token;
-    const response = await fetch(
+    if (!token) {
+      showSlackError("Not authenticated. Please sign in.");
+      return;
+    }
+
+    const response = await fetchWithTimeout(
       `/v1/integrations/slack/${encodeURIComponent(connectionId)}`,
       {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "slack", action: "disconnect", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text, {
+        module: "slack",
+        action: "disconnect",
+        connectionId,
+      });
     }
 
     showSlackSuccess("Slack workspace disconnected");
@@ -260,13 +284,24 @@ async function handleSlackOAuthCallback() {
       try {
         const session = await window.supabase.auth.getSession();
         const token = session?.data?.session?.access_token;
-        const response = await fetch(
+        if (!token) {
+          console.warn("slack link-user: missing auth token");
+          showSlackSuccess(`Slack workspace "${slackConnected}" connected!`);
+          return;
+        }
+
+        const response = await fetchWithTimeout(
           `/v1/integrations/slack/${encodeURIComponent(slackConnectionId)}/link-user`,
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
             },
+          },
+          {
+            module: "slack",
+            action: "link-user",
+            connectionId: slackConnectionId,
           }
         );
 

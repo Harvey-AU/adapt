@@ -351,6 +351,18 @@ func TestCrossOriginProtectionMiddleware(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, rec.Code)
 		})
 	}
+
+	t.Run("allows_cross_origin_mutating_request_with_bearer_token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/jobs", strings.NewReader(`{}`))
+		req.Header.Set("Origin", "https://webflow.com")
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		req.Header.Set("Authorization", "Bearer test-token")
+		rec := httptest.NewRecorder()
+
+		middlewareHandler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
 }
 
 func TestSecurityHeadersMiddleware(t *testing.T) {

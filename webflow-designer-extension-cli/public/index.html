@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="./styles.css" rel="stylesheet" />
+    <title>Adapt for Webflow</title>
+  </head>
+
+  <body>
+    <main class="app-shell">
+      <!-- ═══ UNAUTH STATE ═══ -->
+      <section class="panel" id="unauthState">
+        <header class="header">
+          <div class="top-brand">
+            <span class="brand-text">Adapt</span>
+          </div>
+        </header>
+
+        <div class="section">
+          <p class="section-title">
+            Run your Webflow site checks without leaving Designer.
+          </p>
+          <ul class="benefits-list">
+            <li>Broken links and slow pages</li>
+            <li>Exports and status from one screen</li>
+            <li>Organisation-aware usage and plan visibility</li>
+          </ul>
+
+          <div class="actions">
+            <button id="checkSiteButton" type="button" class="primary">
+              CHECK SITE &rarr;
+            </button>
+            <button id="signInButton" type="button" class="secondary">
+              SIGN IN
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ AUTH STATE ═══ -->
+      <section class="panel hidden" id="authState">
+        <!-- ─── Top bar: org + plan + settings ─── -->
+        <header class="topbar section">
+          <!-- TODO: placeholder avatar / dark-mode toggle -->
+          <div class="topbar-avatar" id="avatarPlaceholder"></div>
+          <div class="topbar-left">
+            <select id="orgSelect" class="btn-secondary"></select>
+            <div class="topbar-plan">
+              <div class="plan-badge">
+                <p class="plan-badge-title" id="planNameText">
+                  <strong>Plan:</strong> —
+                </p>
+                <p class="plan-badge-remaining" id="planRemainingText">
+                  <span class="dot dot-success"></span>
+                  <span id="planRemainingValue">—</span>
+                </p>
+              </div>
+              <!-- TODO: wire up settings gear to open settings page -->
+              <button
+                id="settingsButton"
+                type="button"
+                class="icon-btn"
+                title="Settings"
+              >
+                &#9881;
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- ─── Action bar: run + schedule + auto-publish ─── -->
+        <div class="action-bar section">
+          <button id="runNowButton" type="button" class="btn-primary">
+            Run now
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g clip-path="url(#clip0_4104_48093)">
+                <path
+                  d="M7.5 8.5V13.5H8.5V8.5H13.5V7.5H8.5V2.5H7.5V7.5H2.5V8.5H7.5Z"
+                  fill="white"
+                  fill-opacity="0.67"
+                ></path>
+              </g>
+              <defs>
+                <clipPath id="clip0_4104_48093">
+                  <path
+                    d="M0 2C0 0.895431 0.895431 0 2 0H14C15.1046 0 16 0.895431 16 2V14C16 15.1046 15.1046 16 14 16H2C0.895431 16 0 15.1046 0 14V2Z"
+                    fill="white"
+                  ></path>
+                </clipPath>
+              </defs>
+            </svg>
+          </button>
+          <div class="display-flex">
+            <label for="scheduleSelect">Run every:</label>
+            <select id="scheduleSelect" class="btn-secondary">
+              <option value="off">Off</option>
+              <option value="6">6 hrs</option>
+              <option value="12">12 hrs</option>
+              <option value="24">24 hrs</option>
+              <option value="48">48 hrs</option>
+            </select>
+          </div>
+          <div class="auto-publish-control">
+            <span class="auto-publish-label">Run on publish</span>
+            <input id="runPublishToggle" type="checkbox" class="toggle" />
+          </div>
+        </div>
+
+        <!-- ─── Status messages ─── -->
+        <div class="status-block section">
+          <div class="status-content">
+            <p id="statusText" class="status"></p>
+            <p id="detailText" class="detail"></p>
+          </div>
+        </div>
+
+        <!-- ─── Scrollable content area ─── -->
+        <div class="content-scroll section">
+          <p id="jobSectionHeading" class="section-heading">In progress</p>
+          <!-- Active / current job card -->
+          <div id="jobSection" class="result-card">
+            <div class="result-card-header">
+              <div class="job-progress-right">
+                <span class="dot dot-success"></span>
+                <span id="jobProgressText" class="job-progress-text"
+                  >&mdash;</span
+                >
+              </div>
+              <div class="result-status-left">
+                <span id="jobStatusIcon" class="job-status-icon"></span>
+                <span id="jobStatusLabel" class="result-status-label"
+                  >Loading&hellip;</span
+                >
+              </div>
+            </div>
+
+            <!-- Issue summary pills -->
+            <div class="issue-pills" id="jobIssuePills">
+              <!-- Populated by JS: broken links, very slow, slow pills -->
+            </div>
+
+            <div class="job-card-actions">
+              <button id="viewReportButton" type="button" class="btn-link-blue">
+                View full report
+              </button>
+            </div>
+          </div>
+
+          <!-- No job placeholder -->
+          <div id="noJobState" class="no-job-state hidden">
+            <p class="detail">No runs yet for this site.</p>
+          </div>
+
+          <!-- ─── Results + chart ─── -->
+          <div class="results-section">
+            <p class="section-heading">Latest report</p>
+            <div id="latestResultsList" class="results-list">
+              <!-- Populated by JS — latest completed result -->
+            </div>
+
+            <p class="section-heading">Past results</p>
+
+            <!-- ─── Mini chart ─── -->
+            <div class="chart-section" id="chartSection">
+              <div class="chart-layout">
+                <div class="chart-y-scale" aria-hidden="true">
+                  <span>100</span>
+                  <span>50</span>
+                  <span>25</span>
+                  <span>0</span>
+                </div>
+                <div class="mini-chart" id="miniChart">
+                  <!-- populated by JS from recent job history -->
+                </div>
+              </div>
+            </div>
+
+            <div id="recentResultsList" class="results-list">
+              <!-- Populated by JS — previous completed results -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Footer ─── -->
+        <footer class="panel-footer section">
+          <button id="feedbackButton" type="button" class="footer-link">
+            <!-- Chat bubble icon (SVG inline) -->
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+              />
+            </svg>
+            Feedback
+          </button>
+          <button id="helpButton" type="button" class="footer-link">
+            <!-- Info circle icon (SVG inline) -->
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            Help
+          </button>
+        </footer>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/@supabase/supabase-js@2.80.0/dist/umd/supabase.js"
+      defer
+    ></script>
+    <script src="index.js" defer></script>
+  </body>
+</html>

@@ -181,10 +181,16 @@ func CORSMiddleware(next http.Handler) http.Handler {
 // CrossOriginProtectionMiddleware provides protection against CSRF attacks.
 // It is a wrapper around Go's experimental http.CrossOriginProtection.
 func CrossOriginProtectionMiddleware(next http.Handler) http.Handler {
-	// Using nil for the config uses the default protection.
-	// The Handler method returns a handler that serves the given handler
-	// after performing cross-origin request checks.
-	return http.NewCrossOriginProtection().Handler(next)
+	protector := http.NewCrossOriginProtection()
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/v1/") && r.Header.Get("Authorization") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		protector.Handler(next).ServeHTTP(w, r)
+	})
 }
 
 func appendUnique(values []string, value string) []string {

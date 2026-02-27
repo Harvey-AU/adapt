@@ -17,7 +17,7 @@ automated scheduling and webhook-triggered crawls.
 Keep your site fast and healthy with continuous monitoring and intelligent cache
 warming.
 
-Built by the Goodnative team in Castlemaine, Victoria, Australia.
+Built by the Good Native team in Castlemaine, Victoria, Australia.
 
 ## Key Features
 
@@ -106,6 +106,7 @@ See [Roadmap.md](./Roadmap.md) for detailed progress tracking.
 ## Documentation
 
 - [Getting Started](docs/development/DEVELOPMENT.md)
+- [OpenCode Desktop Setup](docs/development/OPENCODE_DESKTOP.md)
 - [API Reference](docs/architecture/API.md)
 - [Architecture Overview](docs/architecture/ARCHITECTURE.md)
 - [Supabase Realtime](docs/development/SUPABASE-REALTIME.md)
