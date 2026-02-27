@@ -768,17 +768,6 @@ var rebalanceJobPendingQuery = `
 	)
 `
 
-var demotePendingOverQuotaQuery = `
-	UPDATE tasks t
-	SET status = 'waiting'
-	FROM jobs j
-	WHERE t.job_id = j.id
-	  AND t.status = 'pending'
-	  AND j.status IN ('pending', 'running')
-	  AND j.organisation_id IS NOT NULL
-	  AND is_org_over_daily_quota(j.organisation_id)
-`
-
 // rebalancePendingQueues ensures each running job's pending queue doesn't exceed concurrency
 // This is a safety guardrail against bugs that cause pending queue overflow
 // For each job, keeps only the highest-priority pending tasks (up to concurrency limit)
@@ -794,12 +783,6 @@ func (wp *WorkerPool) rebalancePendingQueues(ctx context.Context) error {
 	}
 
 	log.Debug().Msg("Rebalancing pending queues across running jobs")
-
-	if result, err := wp.db.ExecContext(runCtx, demotePendingOverQuotaQuery); err != nil {
-		log.Warn().Err(err).Msg("Failed to demote pending tasks for over-quota jobs")
-	} else if demoted, err := result.RowsAffected(); err == nil && demoted > 0 {
-		log.Info().Int64("demoted_count", demoted).Msg("Demoted pending tasks to waiting due to quota exhaustion")
-	}
 
 	// Get system-wide task status counts for observability
 	var totalPending, totalWaiting, totalRunning, totalCompleted, totalFailed int
