@@ -238,7 +238,7 @@ async function disconnectSlackWorkspace(connectionId) {
   }
 
   try {
-    // Use raw fetch for DELETE since it returns no body
+    // Use fetchWithTimeout for DELETE; response body is not required.
     const session = await window.supabase.auth.getSession();
     const token = session?.data?.session?.access_token;
     const response = await fetchWithTimeout(
