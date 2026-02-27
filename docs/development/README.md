@@ -10,6 +10,8 @@ Setup guides, workflow processes, and debugging tools for Adapt development.
   contributing guidelines
 - **[BRANCHING.md](./BRANCHING.md)** - Git workflow, branch naming, and PR
   process
+- **[OPENCODE_DESKTOP.md](./OPENCODE_DESKTOP.md)** - OpenCode Desktop project
+  configuration for MCP, LSP, and plugins
 
 ### Debugging & Performance
 
