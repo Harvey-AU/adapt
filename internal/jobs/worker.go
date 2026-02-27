@@ -1706,10 +1706,13 @@ func (wp *WorkerPool) checkForPendingTasks(ctx context.Context) error {
 
 			// Get job options
 			var findLinks bool
+			var allowCrossSubdomainLinks bool
 			err := wp.dbQueue.Execute(ctx, func(tx *sql.Tx) error {
 				return tx.QueryRowContext(ctx, `
-					SELECT find_links FROM jobs WHERE id = $1
-				`, jobID).Scan(&findLinks)
+					SELECT find_links, allow_cross_subdomain_links
+					FROM jobs
+					WHERE id = $1
+				`, jobID).Scan(&findLinks, &allowCrossSubdomainLinks)
 			})
 
 			if err != nil {
@@ -1719,7 +1722,7 @@ func (wp *WorkerPool) checkForPendingTasks(ctx context.Context) error {
 
 			options := &JobOptions{
 				FindLinks:                findLinks,
-				AllowCrossSubdomainLinks: true,
+				AllowCrossSubdomainLinks: allowCrossSubdomainLinks,
 			}
 
 			wp.AddJob(jobID, options)
