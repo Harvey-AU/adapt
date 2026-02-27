@@ -447,7 +447,7 @@
       () => {
         coreReady.catch((err) => {
           console.error(
-            "Core initialization failed after DOMContentLoaded",
+            "Core initialisation failed after DOMContentLoaded",
             err
           );
         });
