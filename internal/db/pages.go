@@ -180,7 +180,10 @@ func normaliseURLPath(u string, domain string) (string, string, error) {
 	}
 	host := strings.ToLower(parsedURL.Hostname())
 	if host == "" {
-		host = strings.ToLower(domain)
+		host = strings.ToLower(strings.TrimSpace(domain))
+		if host == "" {
+			return "", "", fmt.Errorf("empty host in URL normalization for %q", u)
+		}
 	}
 	path := parsedURL.Path
 	if path == "" {
