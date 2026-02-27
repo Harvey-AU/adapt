@@ -1709,7 +1709,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
   } else {
-    jobId = pathSegments.length > 1 ? pathSegments.at(-1) : undefined;
+    jobId =
+      pathSegments.length > 1
+        ? pathSegments[pathSegments.length - 1]
+        : undefined;
 
     if (!jobId || jobId === "jobs") {
       const params = new URLSearchParams(window.location.search);

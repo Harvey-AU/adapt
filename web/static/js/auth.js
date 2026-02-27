@@ -768,26 +768,34 @@ async function setUserAvatar(target, email, initials, options = {}) {
     existingImg.remove();
   }
 
-  target.textContent = initials || "?";
+  target.textContent = initials ?? "?";
 
-  const gravatarUrl = await getGravatarUrl(email, options.size || 80);
+  const gravatarUrl = await getGravatarUrl(email, options.size ?? 80);
   if (!gravatarUrl) return;
 
   const avatarImg = document.createElement("img");
   avatarImg.src = gravatarUrl;
-  avatarImg.alt = options.alt || "User avatar";
+  avatarImg.alt = options.alt ?? "User avatar";
   avatarImg.loading = "lazy";
   avatarImg.decoding = "async";
-  avatarImg.addEventListener("load", () => {
-    target.textContent = "";
-    target.appendChild(avatarImg);
-  });
-  avatarImg.addEventListener("error", () => {
-    if (avatarImg.parentNode) {
-      avatarImg.parentNode.removeChild(avatarImg);
-    }
-    target.textContent = initials || "?";
-  });
+  avatarImg.addEventListener(
+    "load",
+    () => {
+      target.textContent = "";
+      target.appendChild(avatarImg);
+    },
+    { once: true }
+  );
+  avatarImg.addEventListener(
+    "error",
+    () => {
+      if (avatarImg.parentNode) {
+        avatarImg.parentNode.removeChild(avatarImg);
+      }
+      target.textContent = initials ?? "?";
+    },
+    { once: true }
+  );
 }
 
 async function getGravatarUrl(email, size) {
@@ -798,7 +806,7 @@ async function getGravatarUrl(email, size) {
   const data = encoder.encode(normalised);
   try {
     const digest = await window.crypto.subtle.digest("SHA-256", data);
-    const hash = Array.from(new Uint8Array(digest))
+    const hash = [...new Uint8Array(digest)]
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     const params = new URLSearchParams({

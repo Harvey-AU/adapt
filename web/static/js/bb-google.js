@@ -30,16 +30,19 @@ function formatGoogleDate(timestamp) {
   }
 }
 
-function normaliseIntegrationError(response, body) {
-  return new Error(body || `HTTP ${response.status}`, {
-    cause: {
-      status: response.status,
-      statusText: response.statusText,
-      url: response.url,
-      body,
-    },
-  });
+var integrationHttp = window.BBIntegrationHttp;
+if (
+  !integrationHttp ||
+  typeof integrationHttp.fetchWithTimeout !== "function" ||
+  typeof integrationHttp.normaliseIntegrationError !== "function"
+) {
+  throw new Error(
+    "Missing or incompatible integration HTTP helpers. Load /js/bb-integration-http.js before bb-google.js."
+  );
 }
+
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
 
 /**
  * Initialise Google Analytics integration UI handlers
@@ -268,19 +271,24 @@ async function disconnectGoogle(connectionId) {
       showGoogleError("Not authenticated. Please sign in.");
       return;
     }
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/google/${encodeURIComponent(connectionId)}`,
       {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "google", action: "disconnect", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "google",
+        action: "disconnect",
+        connectionId,
+      });
     }
 
     showGoogleSuccess("Google Analytics disconnected");
@@ -319,13 +327,21 @@ async function selectGoogleAccount(accountId) {
 
     // Fetch properties for this account
     const fetchUrl = `/v1/integrations/google/pending-session/${pendingGASessionData.session_id}/accounts/${encodeURIComponent(accountId)}/properties`;
-    const response = await fetch(fetchUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetchWithTimeout(
+      fetchUrl,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      { module: "google", action: "fetch-properties", accountId }
+    );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "google",
+        action: "fetch-properties",
+        accountId,
+      });
     }
 
     const result = await response.json();
@@ -363,7 +379,7 @@ async function saveGoogleProperties() {
       return;
     }
 
-    const activePropertyIds = Array.from(selectedGooglePropertyIds);
+    const activePropertyIds = [...selectedGooglePropertyIds];
 
     // Show saving state
     const saveBtn = document.querySelector(
@@ -374,24 +390,31 @@ async function saveGoogleProperties() {
       saveBtn.textContent = "Saving...";
     }
 
-    const response = await fetch("/v1/integrations/google/save-properties", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetchWithTimeout(
+      "/v1/integrations/google/save-properties",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: pendingGASessionData.session_id,
+          account_id:
+            pendingGASessionData.selected_account_id ||
+            pendingGASessionData.accounts?.[0]?.account_id,
+          active_property_ids: activePropertyIds,
+        }),
       },
-      body: JSON.stringify({
-        session_id: pendingGASessionData.session_id,
-        account_id:
-          pendingGASessionData.selected_account_id ||
-          pendingGASessionData.accounts?.[0]?.account_id,
-        active_property_ids: activePropertyIds,
-      }),
-    });
+      { module: "google", action: "save-properties" }
+    );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "google",
+        action: "save-properties",
+      });
     }
 
     // Clear stored session data
@@ -433,7 +456,7 @@ async function toggleConnectionStatus(connectionId, active) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/google/${encodeURIComponent(connectionId)}/status`,
       {
         method: "PATCH",
@@ -444,12 +467,17 @@ async function toggleConnectionStatus(connectionId, active) {
         body: JSON.stringify({
           status: active ? "active" : "inactive",
         }),
-      }
+      },
+      { module: "google", action: "toggle-status", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "google",
+        action: "toggle-status",
+        connectionId,
+      });
     }
     // Reload to update UI
     loadGoogleConnections();
@@ -863,16 +891,21 @@ async function handleGoogleOAuthCallback() {
         return;
       }
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `/v1/integrations/google/pending-session/${gaSession}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
+        { module: "google", action: "pending-session", gaSession }
       );
 
       if (!response.ok) {
         const text = await response.text();
-        throw normaliseIntegrationError(response, text);
+        throw normaliseIntegrationError(response, text, {
+          module: "google",
+          action: "pending-session",
+          gaSession,
+        });
       }
 
       const result = await response.json();
