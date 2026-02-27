@@ -27,7 +27,7 @@ type TransactionExecutor interface {
 }
 
 // CreatePageRecords finds existing pages or creates new ones for the given URLs.
-// It returns the page IDs and their corresponding paths.
+// It returns parallel slices of page IDs, hosts, and paths for each accepted URL.
 func CreatePageRecords(ctx context.Context, q TransactionExecutor, domainID int, domain string, urls []string) ([]int, []string, []string, error) {
 	if len(urls) == 0 {
 		return nil, nil, nil, nil
