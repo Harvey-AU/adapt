@@ -28,10 +28,18 @@ WHERE p.domain_id = d.id
 
 -- Backfill tasks.host from page host, then domain fallback.
 UPDATE tasks t
-SET host = COALESCE(p.host, d.name)
+SET host = COALESCE(t.host, p.host, d.name)
 FROM pages p
 JOIN domains d ON d.id = p.domain_id
 WHERE t.page_id = p.id
+  AND (t.host IS NULL OR t.host = '');
+
+-- Fallback for tasks that do not resolve via page_id.
+UPDATE tasks t
+SET host = d.name
+FROM jobs j
+JOIN domains d ON d.id = j.domain_id
+WHERE t.job_id = j.id
   AND (t.host IS NULL OR t.host = '');
 
 -- Enforce non-null host values.
@@ -52,8 +60,10 @@ SET is_primary = EXCLUDED.is_primary,
     last_seen_at = NOW();
 
 INSERT INTO domain_hosts (domain_id, host, is_primary)
-SELECT p.domain_id, p.host, FALSE
+SELECT DISTINCT p.domain_id, p.host, FALSE
 FROM pages p
+WHERE p.host IS NOT NULL
+  AND p.host <> ''
 ON CONFLICT (domain_id, host) DO UPDATE
 SET last_seen_at = NOW();
 
