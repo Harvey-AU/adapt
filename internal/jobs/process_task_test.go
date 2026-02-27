@@ -14,9 +14,24 @@ func TestConstructTaskURL(t *testing.T) {
 	tests := []struct {
 		name       string
 		path       string
+		host       string
 		domainName string
 		expected   string
 	}{
+		{
+			name:       "relative_path_prefers_host_over_domain",
+			path:       "/about",
+			host:       "us.example.com",
+			domainName: "example.com",
+			expected:   "https://us.example.com/about",
+		},
+		{
+			name:       "root_path_prefers_host_over_domain",
+			path:       "/",
+			host:       "shop.example.com",
+			domainName: "example.com",
+			expected:   "https://shop.example.com/",
+		},
 		{
 			name:       "full_https_url",
 			path:       "https://example.com/page",
@@ -81,7 +96,7 @@ func TestConstructTaskURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := constructTaskURL(tt.path, "", tt.domainName)
+			result := constructTaskURL(tt.path, tt.host, tt.domainName)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -322,6 +337,13 @@ func BenchmarkConstructTaskURLWithFullURL(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = constructTaskURL("https://example.com/test/path", "", "example.com")
+	}
+}
+
+func BenchmarkConstructTaskURLWithHostOverride(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = constructTaskURL("/test/path", "us.example.com", "example.com")
 	}
 }
 
