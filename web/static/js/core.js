@@ -19,39 +19,45 @@
         loadedScripts.set(src, promise);
         return promise;
       }
-      const promise = new Promise((resolve, reject) => {
-        const onLoad = () => {
-          existing.removeEventListener("load", onLoad);
-          existing.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = (err) => {
-          existing.removeEventListener("load", onLoad);
-          existing.removeEventListener("error", onError);
-          reject(err);
-        };
-        existing.addEventListener("load", onLoad);
-        existing.addEventListener("error", onError);
-      });
+      const {
+        promise,
+        resolve: resolveExisting,
+        reject: rejectExisting,
+      } = Promise.withResolvers();
+      const onLoad = () => {
+        existing.removeEventListener("load", onLoad);
+        existing.removeEventListener("error", onError);
+        resolveExisting();
+      };
+      const onError = (err) => {
+        existing.removeEventListener("load", onLoad);
+        existing.removeEventListener("error", onError);
+        rejectExisting(err);
+      };
+      existing.addEventListener("load", onLoad);
+      existing.addEventListener("error", onError);
       loadedScripts.set(src, promise);
       return promise;
     }
 
-    const promise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.dataset.bbLoader = "true";
-      Object.entries(attrs).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        script.setAttribute(key, value);
-      });
-      script.onload = () => {
-        script.dataset.bbReady = "true";
-        resolve();
-      };
-      script.onerror = (error) => reject(error);
-      document.head.appendChild(script);
+    const {
+      promise,
+      resolve: resolveScript,
+      reject: rejectScript,
+    } = Promise.withResolvers();
+    const script = document.createElement("script");
+    script.src = src;
+    script.dataset.bbLoader = "true";
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      script.setAttribute(key, value);
     });
+    script.onload = () => {
+      script.dataset.bbReady = "true";
+      resolveScript();
+    };
+    script.onerror = (error) => rejectScript(error);
+    document.head.appendChild(script);
 
     loadedScripts.set(src, promise);
     return promise;
@@ -64,7 +70,9 @@
     try {
       await loadScript("/config.js");
     } catch (error) {
-      throw new Error("Failed to load /config.js: " + error.message);
+      throw new Error("Failed to load /config.js", {
+        cause: error,
+      });
     }
     if (!window.BBB_CONFIG) {
       throw new Error("BBB_CONFIG missing after loading /config.js");
@@ -195,10 +203,14 @@
   let orgReadyReject = null;
   let orgInitialised = false;
 
-  window.BB_ORG_READY = new Promise((resolve, reject) => {
-    orgReadyResolve = resolve;
-    orgReadyReject = reject;
-  });
+  const {
+    promise: orgReady,
+    resolve: orgReadyResolveRef,
+    reject: orgReadyRejectRef,
+  } = Promise.withResolvers();
+  window.BB_ORG_READY = orgReady;
+  orgReadyResolve = orgReadyResolveRef;
+  orgReadyReject = orgReadyRejectRef;
 
   /**
    * Initialise the active organisation. Called once after auth is confirmed.
@@ -354,7 +366,9 @@
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || "Failed to switch organisation");
+      throw new Error(err.message || "Failed to switch organisation", {
+        cause: { status: response.status, payload: err },
+      });
     }
 
     const switchData = await response.json();

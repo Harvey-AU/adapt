@@ -30,6 +30,17 @@ function formatSlackDate(timestamp) {
   }
 }
 
+function normaliseIntegrationError(response, body) {
+  return new Error(body || `HTTP ${response.status}`, {
+    cause: {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      body,
+    },
+  });
+}
+
 /**
  * Initialise Slack integration UI handlers
  */
@@ -204,7 +215,7 @@ async function disconnectSlackWorkspace(connectionId) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     showSlackSuccess("Slack workspace disconnected");

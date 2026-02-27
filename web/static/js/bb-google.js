@@ -30,6 +30,17 @@ function formatGoogleDate(timestamp) {
   }
 }
 
+function normaliseIntegrationError(response, body) {
+  return new Error(body || `HTTP ${response.status}`, {
+    cause: {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      body,
+    },
+  });
+}
+
 /**
  * Initialise Google Analytics integration UI handlers
  */
@@ -269,7 +280,7 @@ async function disconnectGoogle(connectionId) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     showGoogleSuccess("Google Analytics disconnected");
@@ -314,7 +325,7 @@ async function selectGoogleAccount(accountId) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     const result = await response.json();
@@ -380,7 +391,7 @@ async function saveGoogleProperties() {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     // Clear stored session data
@@ -438,7 +449,7 @@ async function toggleConnectionStatus(connectionId, active) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
     // Reload to update UI
     loadGoogleConnections();
@@ -859,10 +870,10 @@ async function handleGoogleOAuthCallback() {
         }
       );
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `HTTP ${response.status}`);
-      }
+    if (!response.ok) {
+      const text = await response.text();
+      throw normaliseIntegrationError(response, text);
+    }
 
       const result = await response.json();
       const sessionData = result.data;

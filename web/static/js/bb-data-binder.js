@@ -434,7 +434,7 @@ class BBDataBinder {
 
     for (const [key, value] of formData.entries()) {
       // Handle multiple values for same key (checkboxes, etc.)
-      if (data[key]) {
+      if (Object.hasOwn(data, key)) {
         if (Array.isArray(data[key])) {
           data[key].push(value);
         } else {

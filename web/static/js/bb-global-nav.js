@@ -1,9 +1,12 @@
 (function () {
   let resolveNavReady = null;
   if (!window.BB_NAV_READY) {
-    window.BB_NAV_READY = new Promise((resolve) => {
-      resolveNavReady = resolve;
-    });
+    const {
+      promise,
+      resolve,
+    } = Promise.withResolvers();
+    window.BB_NAV_READY = promise;
+    resolveNavReady = resolve;
   }
 
   const finishNavReady = () => {

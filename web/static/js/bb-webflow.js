@@ -41,6 +41,17 @@ function formatWebflowDate(timestamp) {
   }
 }
 
+function normaliseIntegrationError(response, body) {
+  return new Error(body || `HTTP ${response.status}`, {
+    cause: {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      body,
+    },
+  });
+}
+
 /**
  * Initialise Webflow integration UI handlers
  */
@@ -279,7 +290,7 @@ async function disconnectWebflow(connectionId) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     showWebflowSuccess("Webflow disconnected");
@@ -464,7 +475,7 @@ async function loadWebflowSites(connectionId, page = 1) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     const json = await response.json();
@@ -623,7 +634,7 @@ async function handleScheduleChange(event) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     // Update local state
@@ -702,7 +713,7 @@ async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `HTTP ${response.status}`);
+    throw normaliseIntegrationError(response, text);
   }
 }
 
@@ -761,7 +772,7 @@ async function handleAutoPublishToggle(event) {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      throw normaliseIntegrationError(response, text);
     }
 
     // Update local state

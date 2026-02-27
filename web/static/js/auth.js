@@ -1943,7 +1943,9 @@ function initCliAuthPage() {
     } = await supabase.auth.getSession();
 
     if (error || !session) {
-      throw new Error(error?.message || "Unable to read Supabase session");
+      throw new Error(error?.message || "Unable to read Supabase session", {
+        cause: error,
+      });
     }
 
     const response = await fetch(callbackUrl, {
@@ -2181,7 +2183,9 @@ function initExtensionAuthPage() {
     } = await supabase.auth.getSession();
 
     if (error || !session?.access_token || !session.user) {
-      throw new Error(error?.message || "No active session found");
+      throw new Error(error?.message || "No active session found", {
+        cause: error,
+      });
     }
 
     const registered = await registerUserWithBackend(session.user);
