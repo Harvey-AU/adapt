@@ -870,10 +870,10 @@ async function handleGoogleOAuthCallback() {
         }
       );
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw normaliseIntegrationError(response, text);
-    }
+      if (!response.ok) {
+        const text = await response.text();
+        throw normaliseIntegrationError(response, text);
+      }
 
       const result = await response.json();
       const sessionData = result.data;
