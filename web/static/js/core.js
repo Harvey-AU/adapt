@@ -141,7 +141,16 @@
 
     // Callback/CLI/extension auth pages must not block on optional third-party scripts.
     if (!isCliAuthPage && !isAuthCallbackPage && !isExtensionAuthPage) {
-      await Promise.all([ensurePasswordStrength(), ensureTurnstile()]);
+      const optionalScriptResults = await Promise.allSettled([
+        ensurePasswordStrength(),
+        ensureTurnstile(),
+      ]);
+      optionalScriptResults.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const scriptName = index === 0 ? "password-strength" : "turnstile";
+          console.warn(`Optional script failed to load: ${scriptName}`, result.reason);
+        }
+      });
     }
     await ensureAuthBundle();
 
@@ -421,6 +430,6 @@
       coreReady.catch((err) => {
         console.error("Core initialization failed after DOMContentLoaded", err);
       });
-    });
+    }, { once: true });
   }
 })();

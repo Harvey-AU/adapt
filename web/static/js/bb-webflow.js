@@ -41,14 +41,52 @@ function formatWebflowDate(timestamp) {
   }
 }
 
-function normaliseIntegrationError(response, body) {
-  return new Error(body || `HTTP ${response.status}`, {
-    cause: {
-      status: response.status,
-      statusText: response.statusText,
-      url: response.url,
-      body,
-    },
+const INTEGRATION_REQUEST_TIMEOUT_MS = 15000;
+
+class IntegrationHttpError extends Error {
+  constructor(message, details = {}) {
+    super(message, { cause: details.cause });
+    this.name = "IntegrationHttpError";
+    this.status = details.status;
+    this.statusText = details.statusText;
+    this.url = details.url;
+    this.body = details.body;
+    this.context = details.context;
+  }
+}
+
+function withTimeoutSignal(timeoutMs = INTEGRATION_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort("Request timed out");
+  }, timeoutMs);
+  return { signal: controller.signal, timeoutId };
+}
+
+async function fetchWithTimeout(url, options = {}, context = {}) {
+  const { signal, timeoutId } = withTimeoutSignal();
+  try {
+    return await fetch(url, { ...options, signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new IntegrationHttpError("Request timed out", {
+        cause: error,
+        context,
+      });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function normaliseIntegrationError(response, body, context = {}) {
+  return new IntegrationHttpError(body || `HTTP ${response.status}`, {
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url,
+    body,
+    context,
   });
 }
 
@@ -278,19 +316,24 @@ async function disconnectWebflow(connectionId) {
       showWebflowError("Not authenticated. Please sign in.");
       return;
     }
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/${encodeURIComponent(connectionId)}`,
       {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "webflow", action: "disconnect", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "disconnect",
+        connectionId,
+      });
     }
 
     showWebflowSuccess("Webflow disconnected");
@@ -464,18 +507,23 @@ async function loadWebflowSites(connectionId, page = 1) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/${encodeURIComponent(connectionId)}/sites`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "webflow", action: "list-sites", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "list-sites",
+        connectionId,
+      });
     }
 
     const json = await response.json();
@@ -564,7 +612,7 @@ function renderWebflowSites(page = 1) {
     // Set schedule dropdown value
     const scheduleSelect = clone.querySelector(".site-schedule");
     if (scheduleSelect) {
-      scheduleSelect.value = site.schedule_interval_hours || "";
+      scheduleSelect.value = site.schedule_interval_hours ?? "";
       scheduleSelect.dataset.siteId = site.webflow_site_id;
       scheduleSelect.dataset.connectionId = webflowSitesState.connectionId;
       scheduleSelect.addEventListener("change", handleScheduleChange);
@@ -617,7 +665,7 @@ async function handleScheduleChange(event) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/schedule`,
       {
         method: "PUT",
@@ -629,12 +677,18 @@ async function handleScheduleChange(event) {
           connection_id: connectionId,
           schedule_interval_hours: interval,
         }),
-      }
+      },
+      { module: "webflow", action: "update-schedule", siteId, connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "update-schedule",
+        siteId,
+        connectionId,
+      });
     }
 
     // Update local state
@@ -682,7 +736,7 @@ async function handleScheduleChange(event) {
       (s) => s.webflow_site_id === siteId
     );
     if (site) {
-      select.value = site.schedule_interval_hours || "";
+      select.value = site.schedule_interval_hours ?? "";
     }
   } finally {
     select.disabled = false;
@@ -696,7 +750,7 @@ async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
     throw new Error("Not authenticated. Please sign in.");
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
     {
       method: "PUT",
@@ -708,12 +762,18 @@ async function setWebflowAutoPublishForSite(siteId, connectionId, enabled) {
         connection_id: connectionId,
         enabled,
       }),
-    }
+    },
+    { module: "webflow", action: "set-auto-publish", siteId, connectionId }
   );
 
   if (!response.ok) {
     const text = await response.text();
-    throw normaliseIntegrationError(response, text);
+    throw normaliseIntegrationError(response, text, {
+      module: "webflow",
+      action: "set-auto-publish",
+      siteId,
+      connectionId,
+    });
   }
 }
 
@@ -755,7 +815,7 @@ async function handleAutoPublishToggle(event) {
       return;
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/webflow/sites/${encodeURIComponent(siteId)}/auto-publish`,
       {
         method: "PUT",
@@ -767,12 +827,18 @@ async function handleAutoPublishToggle(event) {
           connection_id: connectionId,
           enabled: enabled,
         }),
-      }
+      },
+      { module: "webflow", action: "toggle-auto-publish", siteId, connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "webflow",
+        action: "toggle-auto-publish",
+        siteId,
+        connectionId,
+      });
     }
 
     // Update local state

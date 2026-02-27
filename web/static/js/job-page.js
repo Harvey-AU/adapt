@@ -231,7 +231,7 @@ function updatePageTitle(title) {
 
 function formatJobForBinding(job, jobId) {
   const statusRaw = (job.status || "unknown").toString().toLowerCase();
-  const statusLabel = statusRaw.replace(/_/g, " ").toUpperCase();
+  const statusLabel = statusRaw.replaceAll("_", " ").toUpperCase();
   const totalTasks = Number(job.total_tasks ?? job.totalTasks ?? 0);
   const completedTasks = Number(job.completed_tasks ?? job.completedTasks ?? 0);
   const failedTasks = Number(job.failed_tasks ?? job.failedTasks ?? 0);
@@ -295,7 +295,7 @@ function formatJobForBinding(job, jobId) {
     max_pages_display: maxPages > 0 ? formatCount(maxPages) : "Unlimited",
     source_type_display:
       typeof sourceType === "string"
-        ? sourceType.toUpperCase().replace(/_/g, " ")
+        ? sourceType.toUpperCase().replaceAll("_", " ")
         : "—",
     crawl_delay_display: crawlDelay > 0 ? `${crawlDelay}s` : "—",
     adaptive_delay_display: adaptiveDelay > 0 ? `${adaptiveDelay}s` : "—",
@@ -462,7 +462,7 @@ function formatTasksForBinding(tasks, defaultDomain) {
         : task.path || "/",
       url: buildTaskUrl(task, defaultDomain),
       status: statusRaw,
-      status_label: statusRaw.replace(/_/g, " ").toUpperCase(),
+      status_label: statusRaw.replaceAll("_", " ").toUpperCase(),
       response_time: formatMilliseconds(task.response_time, { empty: "—" }),
       cache_status: task.cache_status || "—",
       second_response_time: formatMilliseconds(task.second_response_time, {
@@ -1483,7 +1483,7 @@ function formatColumnLabel(key) {
   }
 
   return key
-    .replace(/_/g, " ")
+    .replaceAll("_", " ")
     .split(" ")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");

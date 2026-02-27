@@ -30,14 +30,52 @@ function formatSlackDate(timestamp) {
   }
 }
 
-function normaliseIntegrationError(response, body) {
-  return new Error(body || `HTTP ${response.status}`, {
-    cause: {
-      status: response.status,
-      statusText: response.statusText,
-      url: response.url,
-      body,
-    },
+const INTEGRATION_REQUEST_TIMEOUT_MS = 15000;
+
+class IntegrationHttpError extends Error {
+  constructor(message, details = {}) {
+    super(message, { cause: details.cause });
+    this.name = "IntegrationHttpError";
+    this.status = details.status;
+    this.statusText = details.statusText;
+    this.url = details.url;
+    this.body = details.body;
+    this.context = details.context;
+  }
+}
+
+function withTimeoutSignal(timeoutMs = INTEGRATION_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort("Request timed out");
+  }, timeoutMs);
+  return { signal: controller.signal, timeoutId };
+}
+
+async function fetchWithTimeout(url, options = {}, context = {}) {
+  const { signal, timeoutId } = withTimeoutSignal();
+  try {
+    return await fetch(url, { ...options, signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new IntegrationHttpError("Request timed out", {
+        cause: error,
+        context,
+      });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function normaliseIntegrationError(response, body, context = {}) {
+  return new IntegrationHttpError(body || `HTTP ${response.status}`, {
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url,
+    body,
+    context,
   });
 }
 
@@ -203,19 +241,24 @@ async function disconnectSlackWorkspace(connectionId) {
     // Use raw fetch for DELETE since it returns no body
     const session = await window.supabase.auth.getSession();
     const token = session?.data?.session?.access_token;
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `/v1/integrations/slack/${encodeURIComponent(connectionId)}`,
       {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
+      { module: "slack", action: "disconnect", connectionId }
     );
 
     if (!response.ok) {
       const text = await response.text();
-      throw normaliseIntegrationError(response, text);
+      throw normaliseIntegrationError(response, text, {
+        module: "slack",
+        action: "disconnect",
+        connectionId,
+      });
     }
 
     showSlackSuccess("Slack workspace disconnected");
@@ -271,13 +314,18 @@ async function handleSlackOAuthCallback() {
       try {
         const session = await window.supabase.auth.getSession();
         const token = session?.data?.session?.access_token;
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/v1/integrations/slack/${encodeURIComponent(slackConnectionId)}/link-user`,
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
             },
+          },
+          {
+            module: "slack",
+            action: "link-user",
+            connectionId: slackConnectionId,
           }
         );
 
