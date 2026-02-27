@@ -760,8 +760,8 @@ function startFallbackPolling() {
 
   fallbackPollingIntervalMs = nextIntervalMs;
   fallbackPollingIntervalId = setInterval(() => {
-    if (window.dataBinder) {
-      window.dataBinder.refresh();
+    if (window.dataBinder && !isRefreshing) {
+      executeRealtimeRefresh();
     }
   }, fallbackPollingIntervalMs);
 }
