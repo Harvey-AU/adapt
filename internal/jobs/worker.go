@@ -262,6 +262,7 @@ func (wp *WorkerPool) loadJobInfo(ctx context.Context, jobID string, options *Jo
 
 		if options != nil {
 			info.FindLinks = options.FindLinks
+			info.AllowCrossSubdomainLinks = options.AllowCrossSubdomainLinks
 			if options.Concurrency > 0 {
 				info.Concurrency = options.Concurrency
 			}
