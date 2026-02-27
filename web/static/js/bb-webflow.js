@@ -41,14 +41,15 @@ function formatWebflowDate(timestamp) {
   }
 }
 
-const integrationHttp = window.BBIntegrationHttp;
+var integrationHttp = window.BBIntegrationHttp;
 if (!integrationHttp) {
   throw new Error(
     "Missing integration HTTP helpers. Load /js/bb-integration-http.js before bb-webflow.js."
   );
 }
 
-const { fetchWithTimeout, normaliseIntegrationError } = integrationHttp;
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
 
 /**
  * Initialise Webflow integration UI handlers

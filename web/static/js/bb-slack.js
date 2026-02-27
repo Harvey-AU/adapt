@@ -30,14 +30,15 @@ function formatSlackDate(timestamp) {
   }
 }
 
-const integrationHttp = window.BBIntegrationHttp;
+var integrationHttp = window.BBIntegrationHttp;
 if (!integrationHttp) {
   throw new Error(
     "Missing integration HTTP helpers. Load /js/bb-integration-http.js before bb-slack.js."
   );
 }
 
-const { fetchWithTimeout, normaliseIntegrationError } = integrationHttp;
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
 
 /**
  * Initialise Slack integration UI handlers

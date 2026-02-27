@@ -30,7 +30,7 @@ function formatGoogleDate(timestamp) {
   }
 }
 
-const integrationHttp = window.BBIntegrationHttp;
+var integrationHttp = window.BBIntegrationHttp;
 if (
   !integrationHttp ||
   typeof integrationHttp.fetchWithTimeout !== "function" ||
@@ -41,7 +41,8 @@ if (
   );
 }
 
-const { fetchWithTimeout, normaliseIntegrationError } = integrationHttp;
+var fetchWithTimeout = integrationHttp.fetchWithTimeout;
+var normaliseIntegrationError = integrationHttp.normaliseIntegrationError;
 
 /**
  * Initialise Google Analytics integration UI handlers
