@@ -59,7 +59,21 @@ func (m *MockDbQueue) CreatePageRecords(ctx context.Context, dbQueue *db.DbQueue
 		return nil, nil, nil, args.Error(3)
 	}
 
-	return args.Get(0).([]int), args.Get(1).([]string), args.Get(2).([]string), args.Error(3)
+	var ids []int
+	var hosts []string
+	var paths []string
+
+	if v := args.Get(0); v != nil {
+		ids = v.([]int)
+	}
+	if v := args.Get(1); v != nil {
+		hosts = v.([]string)
+	}
+	if v := args.Get(2); v != nil {
+		paths = v.([]string)
+	}
+
+	return ids, hosts, paths, args.Error(3)
 }
 
 // GetNextTask mocks the GetNextTask method
