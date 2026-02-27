@@ -3311,6 +3311,9 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 		if len(links) == 0 {
 			return
 		}
+
+		baseURL, baseErr := url.Parse(sourceURL)
+
 		if err := ctx.Err(); err != nil {
 			log.Debug().
 				Err(err).
@@ -3329,6 +3332,14 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 			if err != nil {
 				continue
 			}
+
+			if !linkURL.IsAbs() {
+				if baseErr != nil || baseURL == nil {
+					continue
+				}
+				linkURL = baseURL.ResolveReference(linkURL)
+			}
+
 			if isLinkAllowedForTask(linkURL.Hostname(), task) {
 				linkURL.Fragment = ""
 				if linkURL.Path != "/" && strings.HasSuffix(linkURL.Path, "/") {
