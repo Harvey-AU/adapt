@@ -241,6 +241,11 @@ async function disconnectSlackWorkspace(connectionId) {
     // Use fetchWithTimeout for DELETE; response body is not required.
     const session = await window.supabase.auth.getSession();
     const token = session?.data?.session?.access_token;
+    if (!token) {
+      showSlackError("Not authenticated. Please sign in.");
+      return;
+    }
+
     const response = await fetchWithTimeout(
       `/v1/integrations/slack/${encodeURIComponent(connectionId)}`,
       {
@@ -314,6 +319,12 @@ async function handleSlackOAuthCallback() {
       try {
         const session = await window.supabase.auth.getSession();
         const token = session?.data?.session?.access_token;
+        if (!token) {
+          console.warn("slack link-user: missing auth token");
+          showSlackSuccess(`Slack workspace "${slackConnected}" connected!`);
+          return;
+        }
+
         const response = await fetchWithTimeout(
           `/v1/integrations/slack/${encodeURIComponent(slackConnectionId)}/link-user`,
           {
