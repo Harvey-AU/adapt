@@ -81,7 +81,7 @@ func TestConstructTaskURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := constructTaskURL(tt.path, tt.domainName)
+			result := constructTaskURL(tt.path, "", tt.domainName)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -314,14 +314,14 @@ func TestProcessDiscoveredLinks(t *testing.T) {
 func BenchmarkConstructTaskURL(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = constructTaskURL("/test/path", "example.com")
+		_ = constructTaskURL("/test/path", "", "example.com")
 	}
 }
 
 func BenchmarkConstructTaskURLWithFullURL(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = constructTaskURL("https://example.com/test/path", "example.com")
+		_ = constructTaskURL("https://example.com/test/path", "", "example.com")
 	}
 }
 

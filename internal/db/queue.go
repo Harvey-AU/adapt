@@ -827,6 +827,7 @@ type Task struct {
 	ID          string
 	JobID       string
 	PageID      int
+	Host        string
 	Path        string
 	Status      string
 	CreatedAt   time.Time
@@ -889,7 +890,7 @@ func (q *DbQueue) GetNextTask(ctx context.Context, jobID string) (*Task, error) 
 		query := `
 			WITH next_task AS (
 				-- Claim a task and check job concurrency in one step
-				SELECT t.id, t.job_id, t.page_id, t.path, t.created_at, t.retry_count,
+				SELECT t.id, t.job_id, t.page_id, t.host, t.path, t.created_at, t.retry_count,
 				       t.source_type, t.source_url, t.priority_score
 				FROM tasks t
 				INNER JOIN jobs j ON t.job_id = j.id
@@ -927,12 +928,12 @@ func (q *DbQueue) GetNextTask(ctx context.Context, jobID string) (*Task, error) 
 				FROM next_task nt
 				JOIN job_update ju ON ju.id = nt.job_id
 				WHERE tasks.id = nt.id
-				RETURNING tasks.id, tasks.job_id, tasks.page_id, tasks.path,
+				RETURNING tasks.id, tasks.job_id, tasks.page_id, tasks.host, tasks.path,
 				          tasks.created_at, tasks.retry_count, tasks.source_type,
 				          tasks.source_url, tasks.priority_score,
 				          ju.running_tasks, ju.concurrency
 			)
-			SELECT id, job_id, page_id, path, created_at, retry_count, source_type, source_url, priority_score,
+			SELECT id, job_id, page_id, host, path, created_at, retry_count, source_type, source_url, priority_score,
 			       running_tasks, concurrency
 			FROM task_update
 		`
@@ -943,7 +944,7 @@ func (q *DbQueue) GetNextTask(ctx context.Context, jobID string) (*Task, error) 
 		var jobRunningTasks sql.NullInt64
 		var jobConcurrency sql.NullInt64
 		err := row.Scan(
-			&task.ID, &task.JobID, &task.PageID, &task.Path,
+			&task.ID, &task.JobID, &task.PageID, &task.Host, &task.Path,
 			&task.CreatedAt, &task.RetryCount, &task.SourceType, &task.SourceURL,
 			&task.PriorityScore, &jobRunningTasks, &jobConcurrency,
 		)
@@ -1221,13 +1222,14 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 		// Use array-based insert to minimise round-trips and leverage Postgres batching
 		insertQuery := `
 			INSERT INTO tasks (
-				id, job_id, page_id, path, status, created_at, retry_count,
+				id, job_id, page_id, host, path, status, created_at, retry_count,
 				source_type, source_url, priority_score
 			)
 			SELECT
 				unnest_ids,
 				unnest_job_ids,
 				unnest_page_ids,
+				unnest_hosts,
 				unnest_paths,
 				unnest_statuses,
 				unnest_created_at,
@@ -1241,15 +1243,17 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 				$3::int[],
 				$4::text[],
 				$5::text[],
-				$6::timestamptz[],
-				$7::int[],
-				$8::text[],
+				$6::text[],
+				$7::timestamptz[],
+				$8::int[],
 				$9::text[],
-				$10::double precision[]
+				$10::text[],
+				$11::double precision[]
 			) AS t(
 				unnest_ids,
 				unnest_job_ids,
 				unnest_page_ids,
+				unnest_hosts,
 				unnest_paths,
 				unnest_statuses,
 				unnest_created_at,
@@ -1260,6 +1264,7 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 			)
 			ON CONFLICT (job_id, page_id) DO UPDATE
 			SET status = EXCLUDED.status,
+				host = EXCLUDED.host,
 				created_at = EXCLUDED.created_at,
 				retry_count = EXCLUDED.retry_count,
 				source_type = EXCLUDED.source_type,
@@ -1279,6 +1284,7 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 			taskIDs     []string
 			jobIDs      []string
 			pageIDs     []int
+			hosts       []string
 			paths       []string
 			statuses    []string
 			createdAts  []time.Time
@@ -1290,6 +1296,15 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 
 		for _, page := range uniquePages {
 			if page.ID == 0 {
+				continue
+			}
+
+			host := page.Host
+			if host == "" && cfg.domainName.Valid {
+				host = cfg.domainName.String
+			}
+			if host == "" {
+				log.Warn().Str("job_id", jobID).Int("page_id", page.ID).Msg("Skipping page enqueue due to missing host")
 				continue
 			}
 
@@ -1309,6 +1324,7 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 			taskIDs = append(taskIDs, uuid.New().String())
 			jobIDs = append(jobIDs, jobID)
 			pageIDs = append(pageIDs, page.ID)
+			hosts = append(hosts, host)
 			paths = append(paths, page.Path)
 			statuses = append(statuses, status)
 			createdAts = append(createdAts, now)
@@ -1331,6 +1347,7 @@ func (q *DbQueue) EnqueueURLs(ctx context.Context, jobID string, pages []Page, s
 			pq.Array(taskIDs),
 			pq.Array(jobIDs),
 			pq.Array(pageIDs),
+			pq.Array(hosts),
 			pq.Array(paths),
 			pq.Array(statuses),
 			pq.Array(createdAts),

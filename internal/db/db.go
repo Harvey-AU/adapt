@@ -742,9 +742,9 @@ func (db *DB) UpsertPageWithAnalytics(
 ) (int, error) {
 	// Create/get page_id in pages table
 	pageQuery := `
-		INSERT INTO pages (domain_id, path, created_at)
-		VALUES ($1, $2, NOW())
-		ON CONFLICT (domain_id, path)
+		INSERT INTO pages (domain_id, host, path, created_at)
+		VALUES ($1, (SELECT name FROM domains WHERE id = $1), $2, NOW())
+		ON CONFLICT (domain_id, host, path)
 		DO UPDATE SET domain_id = EXCLUDED.domain_id
 		RETURNING id
 	`
