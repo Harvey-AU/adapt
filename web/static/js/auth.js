@@ -778,16 +778,24 @@ async function setUserAvatar(target, email, initials, options = {}) {
   avatarImg.alt = options.alt ?? "User avatar";
   avatarImg.loading = "lazy";
   avatarImg.decoding = "async";
-  avatarImg.addEventListener("load", () => {
-    target.textContent = "";
-    target.appendChild(avatarImg);
-  }, { once: true });
-  avatarImg.addEventListener("error", () => {
-    if (avatarImg.parentNode) {
-      avatarImg.parentNode.removeChild(avatarImg);
-    }
-    target.textContent = initials ?? "?";
-  }, { once: true });
+  avatarImg.addEventListener(
+    "load",
+    () => {
+      target.textContent = "";
+      target.appendChild(avatarImg);
+    },
+    { once: true }
+  );
+  avatarImg.addEventListener(
+    "error",
+    () => {
+      if (avatarImg.parentNode) {
+        avatarImg.parentNode.removeChild(avatarImg);
+      }
+      target.textContent = initials ?? "?";
+    },
+    { once: true }
+  );
 }
 
 async function getGravatarUrl(email, size) {

@@ -148,7 +148,10 @@
       optionalScriptResults.forEach((result, index) => {
         if (result.status === "rejected") {
           const scriptName = index === 0 ? "password-strength" : "turnstile";
-          console.warn(`Optional script failed to load: ${scriptName}`, result.reason);
+          console.warn(
+            `Optional script failed to load: ${scriptName}`,
+            result.reason
+          );
         }
       });
     }
@@ -426,10 +429,17 @@
   });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      coreReady.catch((err) => {
-        console.error("Core initialization failed after DOMContentLoaded", err);
-      });
-    }, { once: true });
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        coreReady.catch((err) => {
+          console.error(
+            "Core initialization failed after DOMContentLoaded",
+            err
+          );
+        });
+      },
+      { once: true }
+    );
   }
 })();

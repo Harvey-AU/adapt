@@ -1,10 +1,7 @@
 (function () {
   let resolveNavReady = null;
   if (!window.BB_NAV_READY) {
-    const {
-      promise,
-      resolve,
-    } = Promise.withResolvers();
+    const { promise, resolve } = Promise.withResolvers();
     window.BB_NAV_READY = promise;
     resolveNavReady = resolve;
   }
