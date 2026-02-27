@@ -104,14 +104,15 @@ func (h *Handler) JobHandler(w http.ResponseWriter, r *http.Request) {
 
 // CreateJobRequest represents the request body for creating a job
 type CreateJobRequest struct {
-	Domain       string  `json:"domain"`
-	UseSitemap   *bool   `json:"use_sitemap,omitempty"`
-	FindLinks    *bool   `json:"find_links,omitempty"`
-	Concurrency  *int    `json:"concurrency,omitempty"`
-	MaxPages     *int    `json:"max_pages,omitempty"`
-	SourceType   *string `json:"source_type,omitempty"`
-	SourceDetail *string `json:"source_detail,omitempty"`
-	SourceInfo   *string `json:"source_info,omitempty"`
+	Domain                   string  `json:"domain"`
+	UseSitemap               *bool   `json:"use_sitemap,omitempty"`
+	FindLinks                *bool   `json:"find_links,omitempty"`
+	AllowCrossSubdomainLinks *bool   `json:"allow_cross_subdomain_links,omitempty"`
+	Concurrency              *int    `json:"concurrency,omitempty"`
+	MaxPages                 *int    `json:"max_pages,omitempty"`
+	SourceType               *string `json:"source_type,omitempty"`
+	SourceDetail             *string `json:"source_detail,omitempty"`
+	SourceInfo               *string `json:"source_info,omitempty"`
 }
 
 // JobResponse represents a job in API responses
@@ -243,6 +244,11 @@ func (h *Handler) createJobFromRequest(ctx context.Context, user *db.User, req C
 		findLinks = *req.FindLinks
 	}
 
+	allowCrossSubdomainLinks := true
+	if req.AllowCrossSubdomainLinks != nil {
+		allowCrossSubdomainLinks = *req.AllowCrossSubdomainLinks
+	}
+
 	concurrency := 20 // Default concurrency
 	if req.Concurrency != nil && *req.Concurrency > 0 {
 		concurrency = min(*req.Concurrency, 100)
@@ -261,16 +267,17 @@ func (h *Handler) createJobFromRequest(ctx context.Context, user *db.User, req C
 	}
 
 	opts := &jobs.JobOptions{
-		Domain:         req.Domain,
-		UserID:         &user.ID,
-		OrganisationID: orgIDPtr,
-		UseSitemap:     useSitemap,
-		Concurrency:    concurrency,
-		FindLinks:      findLinks,
-		MaxPages:       maxPages,
-		SourceType:     req.SourceType,
-		SourceDetail:   req.SourceDetail,
-		SourceInfo:     req.SourceInfo,
+		Domain:                   req.Domain,
+		UserID:                   &user.ID,
+		OrganisationID:           orgIDPtr,
+		UseSitemap:               useSitemap,
+		Concurrency:              concurrency,
+		FindLinks:                findLinks,
+		AllowCrossSubdomainLinks: allowCrossSubdomainLinks,
+		MaxPages:                 maxPages,
+		SourceType:               req.SourceType,
+		SourceDetail:             req.SourceDetail,
+		SourceInfo:               req.SourceInfo,
 	}
 
 	// Trigger GA4 data fetch in background if findLinks is enabled and organisation has GA4 connection
@@ -753,7 +760,7 @@ type TaskQueryBuilder struct {
 // buildTaskQuery constructs SQL queries for task retrieval with filters and pagination
 func buildTaskQuery(jobID string, params TaskQueryParams) TaskQueryBuilder {
 	baseQuery := `
-		SELECT t.id, t.job_id, p.path, d.name as domain, t.status, t.status_code, t.response_time,
+		SELECT t.id, t.job_id, p.path, COALESCE(t.host, d.name) as host, d.name as domain, t.status, t.status_code, t.response_time,
 		       t.cache_status, t.second_response_time, t.second_cache_status, t.content_type, t.error, t.source_type, t.source_url,
 		       t.created_at, t.started_at, t.completed_at, t.retry_count,
 		       pa.page_views_7d, pa.page_views_28d, pa.page_views_180d
@@ -816,6 +823,7 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 
 	for rows.Next() {
 		var task TaskResponse
+		var host string
 		var domain string
 		var startedAt, completedAt, createdAt sql.NullTime
 		var statusCode, responseTime, secondResponseTime sql.NullInt32
@@ -823,7 +831,7 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 		var cacheStatus, secondCacheStatus, contentType, errorMsg, sourceType, sourceURL sql.NullString
 
 		err := rows.Scan(
-			&task.ID, &task.JobID, &task.Path, &domain, &task.Status,
+			&task.ID, &task.JobID, &task.Path, &host, &domain, &task.Status,
 			&statusCode, &responseTime, &cacheStatus, &secondResponseTime, &secondCacheStatus, &contentType, &errorMsg, &sourceType, &sourceURL,
 			&createdAt, &startedAt, &completedAt, &task.RetryCount,
 			&pageViews7d, &pageViews28d, &pageViews180d,
@@ -832,8 +840,12 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 			return nil, fmt.Errorf("failed to scan task row: %w", err)
 		}
 
-		// Construct full URL from domain and path
-		task.URL = fmt.Sprintf("https://%s%s", domain, task.Path)
+		if canonicalHostForComparison(host) != canonicalHostForComparison(domain) {
+			task.Host = &host
+		}
+
+		// Construct full URL from host and path
+		task.URL = fmt.Sprintf("https://%s%s", host, task.Path)
 
 		// Handle nullable fields
 		if statusCode.Valid {
@@ -898,10 +910,17 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 	return tasks, nil
 }
 
+func canonicalHostForComparison(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	host = strings.TrimSuffix(host, ".")
+	return strings.TrimPrefix(host, "www.")
+}
+
 // TaskResponse represents a task in API responses
 type TaskResponse struct {
 	ID                 string  `json:"id"`
 	JobID              string  `json:"job_id"`
+	Host               *string `json:"host,omitempty"`
 	Path               string  `json:"path"`
 	URL                string  `json:"url"`
 	Status             string  `json:"status"`
@@ -1102,7 +1121,7 @@ func (h *Handler) serveJobExport(w http.ResponseWriter, r *http.Request, jobID s
 	// Query tasks
 	query := fmt.Sprintf(`
 		SELECT
-			t.id, t.job_id, p.path, d.name as domain,
+			t.id, t.job_id, p.path, COALESCE(t.host, d.name) as host, d.name as domain,
 			t.status, t.status_code, t.response_time, t.cache_status,
 			t.second_response_time, t.second_cache_status,
 			t.content_type, t.error, t.source_type, t.source_url,

@@ -615,22 +615,24 @@ func calculateDateRangeForList(dateRange, timezone string) (*time.Time, *time.Ti
 
 // SlowPage represents a slow-loading page for dashboard analysis
 type SlowPage struct {
-	URL                string `json:"url"`
-	Domain             string `json:"domain"`
-	Path               string `json:"path"`
-	SecondResponseTime int64  `json:"second_response_time"` // milliseconds after cache retry
-	JobID              string `json:"job_id"`
-	CompletedAt        string `json:"completed_at"`
+	URL                string  `json:"url"`
+	Domain             string  `json:"domain"`
+	Host               *string `json:"host,omitempty"`
+	Path               string  `json:"path"`
+	SecondResponseTime int64   `json:"second_response_time"` // milliseconds after cache retry
+	JobID              string  `json:"job_id"`
+	CompletedAt        string  `json:"completed_at"`
 }
 
 // ExternalRedirect represents a page that redirects to an external domain
 type ExternalRedirect struct {
-	URL         string `json:"url"`
-	Domain      string `json:"domain"`
-	Path        string `json:"path"`
-	RedirectURL string `json:"redirect_url"`
-	JobID       string `json:"job_id"`
-	CompletedAt string `json:"completed_at"`
+	URL         string  `json:"url"`
+	Domain      string  `json:"domain"`
+	Host        *string `json:"host,omitempty"`
+	Path        string  `json:"path"`
+	RedirectURL string  `json:"redirect_url"`
+	JobID       string  `json:"job_id"`
+	CompletedAt string  `json:"completed_at"`
 }
 
 // GetSlowPages retrieves the slowest pages after cache retry attempts
@@ -639,8 +641,9 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 	query := `
 		WITH user_tasks AS (
 			SELECT 
-				'https://' || d.name || p.path as url,
+				'https://' || p.host || p.path as url,
 				d.name as domain,
+				CASE WHEN COALESCE(dh.host_count, 1) > 1 THEN p.host ELSE NULL END as host,
 				p.path,
 				t.second_response_time,
 				t.job_id,
@@ -649,6 +652,11 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 			JOIN jobs j ON t.job_id = j.id
 			JOIN pages p ON t.page_id = p.id
 			JOIN domains d ON p.domain_id = d.id
+			LEFT JOIN (
+				SELECT domain_id, COUNT(DISTINCT LOWER(REGEXP_REPLACE(host, '^www\\.', '')))::int AS host_count
+				FROM domain_hosts
+				GROUP BY domain_id
+			) dh ON dh.domain_id = p.domain_id
 			WHERE j.organisation_id = $1
 				AND t.status = 'completed'
 				AND t.second_response_time IS NOT NULL
@@ -673,7 +681,7 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 			LIMIT 10
 		)
 		SELECT DISTINCT 
-			url, domain, path, second_response_time, job_id, 
+			url, domain, host, path, second_response_time, job_id, 
 			completed_at::timestamp AT TIME ZONE 'UTC' as completed_at
 		FROM (
 			SELECT * FROM top_10_absolute
@@ -695,10 +703,12 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 	for rows.Next() {
 		var page SlowPage
 		var completedAt sql.NullTime
+		var host sql.NullString
 
 		err := rows.Scan(
 			&page.URL,
 			&page.Domain,
+			&host,
 			&page.Path,
 			&page.SecondResponseTime,
 			&page.JobID,
@@ -711,6 +721,10 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 
 		if completedAt.Valid {
 			page.CompletedAt = completedAt.Time.Format(time.RFC3339)
+		}
+		if host.Valid {
+			h := host.String
+			page.Host = &h
 		}
 
 		slowPages = append(slowPages, page)
@@ -728,8 +742,9 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 func (db *DB) GetExternalRedirects(organisationID string, startDate, endDate *time.Time) ([]ExternalRedirect, error) {
 	query := `
 		SELECT 
-			'https://' || d.name || p.path as url,
+			'https://' || p.host || p.path as url,
 			d.name as domain,
+			CASE WHEN COALESCE(dh.host_count, 1) > 1 THEN p.host ELSE NULL END as host,
 			p.path,
 			t.redirect_url,
 			t.job_id,
@@ -738,6 +753,11 @@ func (db *DB) GetExternalRedirects(organisationID string, startDate, endDate *ti
 		JOIN jobs j ON t.job_id = j.id
 		JOIN pages p ON t.page_id = p.id
 		JOIN domains d ON p.domain_id = d.id
+		LEFT JOIN (
+			SELECT domain_id, COUNT(DISTINCT LOWER(REGEXP_REPLACE(host, '^www\\.', '')))::int AS host_count
+			FROM domain_hosts
+			GROUP BY domain_id
+		) dh ON dh.domain_id = p.domain_id
 		WHERE j.organisation_id = $1
 			AND t.status = 'completed'
 			AND t.redirect_url IS NOT NULL
@@ -766,10 +786,12 @@ func (db *DB) GetExternalRedirects(organisationID string, startDate, endDate *ti
 	for rows.Next() {
 		var redirect ExternalRedirect
 		var completedAt sql.NullTime
+		var host sql.NullString
 
 		err := rows.Scan(
 			&redirect.URL,
 			&redirect.Domain,
+			&host,
 			&redirect.Path,
 			&redirect.RedirectURL,
 			&redirect.JobID,
@@ -782,6 +804,10 @@ func (db *DB) GetExternalRedirects(organisationID string, startDate, endDate *ti
 
 		if completedAt.Valid {
 			redirect.CompletedAt = completedAt.Time.Format(time.RFC3339)
+		}
+		if host.Valid {
+			h := host.String
+			redirect.Host = &h
 		}
 
 		redirects = append(redirects, redirect)

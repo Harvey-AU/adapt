@@ -32,6 +32,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -199,33 +200,35 @@ func (wp *WorkerPool) recordWaitingTask(ctx context.Context, task *db.Task, reas
 
 func (wp *WorkerPool) fetchJobInfoFromDB(ctx context.Context, jobID string) (*JobInfo, error) {
 	var (
-		domainID      int
-		domainName    string
-		crawlDelay    sql.NullInt64
-		adaptiveDelay sql.NullInt64
-		adaptiveFloor sql.NullInt64
-		findLinks     bool
-		concurrency   int
+		domainID                 int
+		domainName               string
+		crawlDelay               sql.NullInt64
+		adaptiveDelay            sql.NullInt64
+		adaptiveFloor            sql.NullInt64
+		findLinks                bool
+		allowCrossSubdomainLinks bool
+		concurrency              int
 	)
 
 	err := wp.dbQueue.Execute(ctx, func(tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
 			SELECT d.id, d.name, d.crawl_delay_seconds, d.adaptive_delay_seconds, d.adaptive_delay_floor_seconds,
-			       j.find_links, j.concurrency
+			       j.find_links, j.allow_cross_subdomain_links, j.concurrency
 			FROM domains d
 			JOIN jobs j ON j.domain_id = d.id
 			WHERE j.id = $1
-		`, jobID).Scan(&domainID, &domainName, &crawlDelay, &adaptiveDelay, &adaptiveFloor, &findLinks, &concurrency)
+		`, jobID).Scan(&domainID, &domainName, &crawlDelay, &adaptiveDelay, &adaptiveFloor, &findLinks, &allowCrossSubdomainLinks, &concurrency)
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	info := &JobInfo{
-		DomainID:    domainID,
-		DomainName:  domainName,
-		FindLinks:   findLinks,
-		Concurrency: concurrency,
+		DomainID:                 domainID,
+		DomainName:               domainName,
+		FindLinks:                findLinks,
+		AllowCrossSubdomainLinks: allowCrossSubdomainLinks,
+		Concurrency:              concurrency,
 	}
 	if crawlDelay.Valid {
 		info.CrawlDelay = int(crawlDelay.Int64)
@@ -259,6 +262,7 @@ func (wp *WorkerPool) loadJobInfo(ctx context.Context, jobID string, options *Jo
 
 		if options != nil {
 			info.FindLinks = options.FindLinks
+			info.AllowCrossSubdomainLinks = options.AllowCrossSubdomainLinks
 			if options.Concurrency > 0 {
 				info.Concurrency = options.Concurrency
 			}
@@ -343,14 +347,15 @@ func (wp *WorkerPool) recordJobInfoCacheSize(ctx context.Context) {
 
 // JobInfo caches job-specific data that doesn't change during execution
 type JobInfo struct {
-	DomainID           int
-	DomainName         string
-	FindLinks          bool
-	CrawlDelay         int
-	Concurrency        int
-	AdaptiveDelay      int
-	AdaptiveDelayFloor int
-	RobotsRules        *crawler.RobotsRules // Cached robots.txt rules for URL filtering
+	DomainID                 int
+	DomainName               string
+	FindLinks                bool
+	AllowCrossSubdomainLinks bool
+	CrawlDelay               int
+	Concurrency              int
+	AdaptiveDelay            int
+	AdaptiveDelayFloor       int
+	RobotsRules              *crawler.RobotsRules // Cached robots.txt rules for URL filtering
 }
 
 type jobFailureState struct {
@@ -1467,6 +1472,7 @@ func (wp *WorkerPool) prepareTaskForProcessing(ctx context.Context, task *db.Tas
 		ID:            task.ID,
 		JobID:         task.JobID,
 		PageID:        task.PageID,
+		Host:          task.Host,
 		Path:          task.Path,
 		Status:        TaskStatus(task.Status),
 		CreatedAt:     task.CreatedAt,
@@ -1486,6 +1492,7 @@ func (wp *WorkerPool) prepareTaskForProcessing(ctx context.Context, task *db.Tas
 		jobsTask.DomainID = jobInfo.DomainID
 		jobsTask.DomainName = jobInfo.DomainName
 		jobsTask.FindLinks = jobInfo.FindLinks
+		jobsTask.AllowCrossSubdomainLinks = jobInfo.AllowCrossSubdomainLinks
 		jobsTask.CrawlDelay = jobInfo.CrawlDelay
 		jobsTask.JobConcurrency = jobInfo.Concurrency
 		jobsTask.AdaptiveDelay = jobInfo.AdaptiveDelay
@@ -1501,6 +1508,7 @@ func (wp *WorkerPool) prepareTaskForProcessing(ctx context.Context, task *db.Tas
 			jobsTask.DomainID = info.DomainID
 			jobsTask.DomainName = info.DomainName
 			jobsTask.FindLinks = info.FindLinks
+			jobsTask.AllowCrossSubdomainLinks = info.AllowCrossSubdomainLinks
 			jobsTask.CrawlDelay = info.CrawlDelay
 			jobsTask.JobConcurrency = info.Concurrency
 			jobsTask.AdaptiveDelay = info.AdaptiveDelay
@@ -1698,10 +1706,13 @@ func (wp *WorkerPool) checkForPendingTasks(ctx context.Context) error {
 
 			// Get job options
 			var findLinks bool
+			var allowCrossSubdomainLinks bool
 			err := wp.dbQueue.Execute(ctx, func(tx *sql.Tx) error {
 				return tx.QueryRowContext(ctx, `
-					SELECT find_links FROM jobs WHERE id = $1
-				`, jobID).Scan(&findLinks)
+					SELECT find_links, allow_cross_subdomain_links
+					FROM jobs
+					WHERE id = $1
+				`, jobID).Scan(&findLinks, &allowCrossSubdomainLinks)
 			})
 
 			if err != nil {
@@ -1710,7 +1721,8 @@ func (wp *WorkerPool) checkForPendingTasks(ctx context.Context) error {
 			}
 
 			options := &JobOptions{
-				FindLinks: findLinks,
+				FindLinks:                findLinks,
+				AllowCrossSubdomainLinks: allowCrossSubdomainLinks,
 			}
 
 			wp.AddJob(jobID, options)
@@ -3240,10 +3252,12 @@ func (wp *WorkerPool) releaseRunningTaskSlot(jobID string) error {
 
 // processTask processes an individual task
 // constructTaskURL builds a proper URL from task path and domain information
-func constructTaskURL(path, domainName string) string {
+func constructTaskURL(path, host, domainName string) string {
 	// Check if path is already a full URL
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return util.NormaliseURL(path)
+	} else if host != "" {
+		return util.ConstructURL(host, path)
 	} else if domainName != "" {
 		// Use centralized URL construction
 		return util.ConstructURL(domainName, path)
@@ -3297,6 +3311,9 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 		if len(links) == 0 {
 			return
 		}
+
+		baseURL, baseErr := url.Parse(sourceURL)
+
 		if err := ctx.Err(); err != nil {
 			log.Debug().
 				Err(err).
@@ -3307,7 +3324,7 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 			return
 		}
 
-		// 1. Filter links for same-domain and robots.txt compliance
+		// 1. Filter links for same-site and robots.txt compliance
 		var filtered []string
 		var blockedCount int
 		for _, link := range links {
@@ -3315,7 +3332,15 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 			if err != nil {
 				continue
 			}
-			if isSameOrSubDomain(linkURL.Hostname(), task.DomainName) {
+
+			if !linkURL.IsAbs() {
+				if baseErr != nil || baseURL == nil {
+					continue
+				}
+				linkURL = baseURL.ResolveReference(linkURL)
+			}
+
+			if isLinkAllowedForTask(linkURL.Hostname(), task) {
 				linkURL.Fragment = ""
 				if linkURL.Path != "/" && strings.HasSuffix(linkURL.Path, "/") {
 					linkURL.Path = strings.TrimSuffix(linkURL.Path, "/")
@@ -3380,7 +3405,7 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 		defer linkCancel()
 
 		// 2. Create page records
-		pageIDs, paths, err := db.CreatePageRecords(linkCtx, wp.dbQueue, domainID, task.DomainName, filtered)
+		pageIDs, hosts, paths, err := db.CreatePageRecords(linkCtx, wp.dbQueue, domainID, task.DomainName, filtered)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create page records for links")
 			return
@@ -3391,6 +3416,7 @@ func (wp *WorkerPool) processDiscoveredLinks(ctx context.Context, task *Task, re
 		for i := range pageIDs {
 			pagesToEnqueue[i] = db.Page{
 				ID:   pageIDs[i],
+				Host: hosts[i],
 				Path: paths[i],
 				// Priority will be set by the caller of processLinkCategory
 			}
@@ -3743,7 +3769,7 @@ func (wp *WorkerPool) processTask(ctx context.Context, task *Task) (*crawler.Cra
 	}()
 
 	// Construct a proper URL for processing
-	urlStr := constructTaskURL(task.Path, task.DomainName)
+	urlStr := constructTaskURL(task.Path, task.Host, task.DomainName)
 
 	log.Debug().Str("url", urlStr).Str("task_id", task.ID).Msg("Starting URL warm")
 
@@ -3938,38 +3964,47 @@ func calculateBackoffDuration(retryCount int) time.Duration {
 	return backoffDuration
 }
 
-// Helper function to check if a hostname is the same domain or a subdomain of the target domain
-// Handles www prefix variations (www.test.com vs test.com)
-func isSameOrSubDomain(hostname, targetDomain string) bool {
-	// Normalise both domains by removing www prefix
-	hostname = strings.ToLower(hostname)
-	targetDomain = strings.ToLower(targetDomain)
+func normaliseComparableHost(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	host = strings.TrimSuffix(host, ".")
+	return strings.TrimPrefix(host, "www.")
+}
 
-	// Remove www. prefix if present
-	normalisedHostname := strings.TrimPrefix(hostname, "www.")
-	normalisedTarget := strings.TrimPrefix(targetDomain, "www.")
-
-	// Direct match (after normalization)
-	if normalisedHostname == normalisedTarget {
-		return true
+func sameRegistrableDomain(hostA, hostB string) bool {
+	normalisedA := normaliseComparableHost(hostA)
+	normalisedB := normaliseComparableHost(hostB)
+	if normalisedA == "" || normalisedB == "" {
+		return false
 	}
 
-	// Original direct match (before normalization)
-	if hostname == targetDomain {
-		return true
+	rootA, errA := publicsuffix.EffectiveTLDPlusOne(normalisedA)
+	rootB, errB := publicsuffix.EffectiveTLDPlusOne(normalisedB)
+	if errA != nil || errB != nil {
+		return normalisedA == normalisedB
 	}
 
-	// Check if hostname ends with .targetDomain (subdomain check)
-	if strings.HasSuffix(hostname, "."+targetDomain) {
-		return true
+	return rootA == rootB
+}
+
+func sameHostWithWWWEquivalence(hostA, hostB string) bool {
+	return normaliseComparableHost(hostA) == normaliseComparableHost(hostB)
+}
+
+// isLinkAllowedForTask determines whether a discovered hostname should be queued.
+func isLinkAllowedForTask(discoveredHost string, task *Task) bool {
+	if task == nil {
+		return false
 	}
 
-	// Check if hostname ends with .normalisedTarget (subdomain check without www)
-	if strings.HasSuffix(hostname, "."+normalisedTarget) {
-		return true
+	if task.AllowCrossSubdomainLinks {
+		return sameRegistrableDomain(discoveredHost, task.DomainName)
 	}
 
-	return false
+	if task.Host != "" {
+		return sameHostWithWWWEquivalence(discoveredHost, task.Host)
+	}
+
+	return sameHostWithWWWEquivalence(discoveredHost, task.DomainName)
 }
 
 // updateTaskPriorities updates the priority scores for tasks of linked pages

@@ -52,14 +52,28 @@ func (m *MockDbQueue) CleanupStuckJobs(ctx context.Context) error {
 }
 
 // CreatePageRecords mocks the CreatePageRecords method
-func (m *MockDbQueue) CreatePageRecords(ctx context.Context, dbQueue *db.DbQueue, domainID int, domain string, urls []string) ([]int, []string, error) {
+func (m *MockDbQueue) CreatePageRecords(ctx context.Context, dbQueue *db.DbQueue, domainID int, domain string, urls []string) ([]int, []string, []string, error) {
 	args := m.Called(ctx, dbQueue, domainID, domain, urls)
 
 	if args.Get(0) == nil {
-		return nil, nil, args.Error(2)
+		return nil, nil, nil, args.Error(3)
 	}
 
-	return args.Get(0).([]int), args.Get(1).([]string), args.Error(2)
+	var ids []int
+	var hosts []string
+	var paths []string
+
+	if v := args.Get(0); v != nil {
+		ids = v.([]int)
+	}
+	if v := args.Get(1); v != nil {
+		hosts = v.([]string)
+	}
+	if v := args.Get(2); v != nil {
+		paths = v.([]string)
+	}
+
+	return ids, hosts, paths, args.Error(3)
 }
 
 // GetNextTask mocks the GetNextTask method
