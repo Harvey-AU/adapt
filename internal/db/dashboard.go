@@ -653,7 +653,7 @@ func (db *DB) GetSlowPages(organisationID string, startDate, endDate *time.Time)
 			JOIN pages p ON t.page_id = p.id
 			JOIN domains d ON p.domain_id = d.id
 			LEFT JOIN (
-				SELECT domain_id, COUNT(*)::int AS host_count
+				SELECT domain_id, COUNT(DISTINCT LOWER(REGEXP_REPLACE(host, '^www\\.', '')))::int AS host_count
 				FROM domain_hosts
 				GROUP BY domain_id
 			) dh ON dh.domain_id = p.domain_id
@@ -754,7 +754,7 @@ func (db *DB) GetExternalRedirects(organisationID string, startDate, endDate *ti
 		JOIN pages p ON t.page_id = p.id
 		JOIN domains d ON p.domain_id = d.id
 		LEFT JOIN (
-			SELECT domain_id, COUNT(*)::int AS host_count
+			SELECT domain_id, COUNT(DISTINCT LOWER(REGEXP_REPLACE(host, '^www\\.', '')))::int AS host_count
 			FROM domain_hosts
 			GROUP BY domain_id
 		) dh ON dh.domain_id = p.domain_id

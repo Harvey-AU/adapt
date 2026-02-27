@@ -158,9 +158,9 @@ func ensurePageBatch(ctx context.Context, q TransactionExecutor, domainID int, b
 
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO domain_hosts (domain_id, host, is_primary, last_seen_at)
-			SELECT $1, host, FALSE, NOW()
+			SELECT $1, canonical_host, FALSE, NOW()
 			FROM (
-				SELECT DISTINCT host
+				SELECT DISTINCT LOWER(REGEXP_REPLACE(host, '^www\\.', '')) AS canonical_host
 				FROM UNNEST($2::text[]) AS host
 				WHERE host <> ''
 			) unique_hosts

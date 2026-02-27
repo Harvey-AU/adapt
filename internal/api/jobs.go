@@ -840,7 +840,7 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 			return nil, fmt.Errorf("failed to scan task row: %w", err)
 		}
 
-		if host != domain {
+		if canonicalHostForComparison(host) != canonicalHostForComparison(domain) {
 			task.Host = &host
 		}
 
@@ -908,6 +908,12 @@ func formatTasksFromRows(rows *sql.Rows) ([]TaskResponse, error) {
 	}
 
 	return tasks, nil
+}
+
+func canonicalHostForComparison(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	host = strings.TrimSuffix(host, ".")
+	return strings.TrimPrefix(host, "www.")
 }
 
 // TaskResponse represents a task in API responses
