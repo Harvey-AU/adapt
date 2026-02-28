@@ -28,6 +28,16 @@ On merge, CI will:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Security gate reliability**: Updated `scripts/security-check.sh` so `gosec`
+  checks run consistently when `golangci-lint` is missing or old, and to
+  auto-install missing Go security tooling (`govulncheck`, `golangci-lint`) in
+  the same run.
+- **Security lint suppression hygiene**: Added `#nosec` annotations for intended
+  SQL/HTTP paths that are bound-parameterised or fixed-by-construction, allowing
+  `gosec` to pass without changing runtime behaviour.
+
 ## [0.27.0] – 2026-02-23
 
 ### Added
