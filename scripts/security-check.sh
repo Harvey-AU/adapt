@@ -39,17 +39,17 @@ fi
 
 echo -e "\n🔍 Running govulncheck (Go Dependencies)..."
 if ! ensure_go_tool "govulncheck" "golang.org/x/vuln/cmd/govulncheck@latest"; then
-	  echo -e "\n❌ govulncheck installation failed; security check must not be skipped"
-	  EXIT_CODE=1
-	else
-	  if ! govulncheck ./...; then
-	    EXIT_CODE=1
-	  fi
-	fi
+  echo -e "\n❌ govulncheck installation failed; security check must not be skipped"
+  EXIT_CODE=1
+else
+  if ! govulncheck ./...; then
+    EXIT_CODE=1
+  fi
+fi
 
 echo -e "\n🔍 Running ESLint Security (JS Code)..."
 if ! npx eslint "web/**/*.js"; then
-    EXIT_CODE=1
+  EXIT_CODE=1
 fi
 
 echo -e "\n🔍 Running Gosec (via golangci-lint)..."
@@ -82,7 +82,6 @@ fi
 
 if [ "$EXIT_CODE" -ne 0 ]; then
   echo -e "\nℹ️  golangci-lint issues above may be pre-existing or environment-related"
-  EXIT_CODE=1
 fi
 
 if [ "$EXIT_CODE" -eq 0 ]; then

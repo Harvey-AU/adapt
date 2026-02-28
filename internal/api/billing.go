@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -25,7 +27,10 @@ type billingCheckoutRequest struct {
 	PlanID string `json:"plan_id"`
 }
 
-var paddleHTTPClient = &http.Client{Timeout: 30 * time.Second}
+var paddleHTTPClient = &http.Client{
+	Timeout:   30 * time.Second,
+	Transport: http.DefaultTransport,
+}
 
 type paddleCheckoutItem struct {
 	PriceID  string `json:"price_id"`
@@ -599,7 +604,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	processErr := h.processPaddleWebhookEvent(r.Context(), event.EventType, event.Data)
+	processErr := h.processPaddleWebhookEvent(r.Context(), event.EventID, event.EventType, event.Data)
 	status := "processed"
 	errMsg := ""
 	if processErr != nil {
@@ -641,7 +646,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 	WriteSuccess(w, r, nil, "Webhook processed successfully")
 }
 
-func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType string, data json.RawMessage) error {
+func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventType string, data json.RawMessage) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -684,6 +689,16 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 		}
 	}
 	if orgID == "" {
+		requestID, _ := ctx.Value(requestIDKey).(string)
+		if requestID == "" {
+			requestID = "unknown"
+		}
+		log.Warn().
+			Str("event_id", eventID).
+			Str("event_type", eventType).
+			Str("request_id", requestID).
+			Str("payload", truncatePayloadForLog(data)).
+			Msg("Paddle webhook payload lacks organisation context")
 		return nil
 	}
 
@@ -806,7 +821,17 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 		body = bytes.NewReader(encoded)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
+	baseURLWithPath, err := url.JoinPath(baseURL, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build paddle request path: %w", err)
+	}
+
+	client, clientErr := getPaddleHTTPClient(baseURL)
+	if clientErr != nil {
+		return nil, clientErr
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, baseURLWithPath, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build paddle request: %w", err)
 	}
@@ -815,7 +840,7 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 	req.Header.Set("Accept", "application/json")
 
 	// #nosec G704 -- Paddle endpoint is fixed base URL + known API path
-	resp, err := paddleHTTPClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("paddle API request failed: %w", err)
 	}
@@ -845,6 +870,115 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 	}
 
 	return parsed.Data, nil
+}
+
+func getPaddleHTTPClient(baseURL string) (*http.Client, error) {
+	if _, err := validatePaddleBaseURL(baseURL); err != nil {
+		return nil, err
+	}
+
+	transport, ok := paddleHTTPClient.Transport.(*http.Transport)
+	if !ok {
+		transport = &http.Transport{}
+	}
+	transportClone := transport.Clone()
+	transportClone.DialContext = ssrfSafePaddleDialContext()
+
+	return &http.Client{
+		Timeout:   paddleHTTPClient.Timeout,
+		Transport: transportClone,
+	}, nil
+}
+
+func validatePaddleBaseURL(rawBaseURL string) (string, error) {
+	parsed, err := url.Parse(rawBaseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid Paddle API base URL: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("invalid Paddle API base URL: missing scheme/host")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("invalid Paddle API base URL scheme: %s", parsed.Scheme)
+	}
+
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return "", fmt.Errorf("invalid Paddle API base URL: missing host")
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve Paddle API host %q: %w", host, err)
+	}
+
+	for _, ip := range ips {
+		if isPrivateOrLocalPaddleIP(ip) {
+			return "", fmt.Errorf("blocked Paddle API host %q resolves to private/local IP %q", host, ip.String())
+		}
+	}
+
+	return host, nil
+}
+
+func isPrivateOrLocalPaddleIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified()
+}
+
+func ssrfSafePaddleDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return nil, fmt.Errorf("DNS lookup failed: %w", err)
+		}
+
+		for _, ip := range ips {
+			if isPrivateOrLocalPaddleIP(ip) {
+				log.Warn().
+					Str("host", host).
+					Str("ip", ip.String()).
+					Msg("SSRF protection blocked Paddle request to private/local IP")
+				return nil, fmt.Errorf("blocked connection to private/local IP: %s resolves to %s", host, ip.String())
+			}
+		}
+
+		var connectAddr string
+		for _, ip := range ips {
+			if ip.To4() != nil {
+				connectAddr = net.JoinHostPort(ip.String(), port)
+				break
+			}
+		}
+		if connectAddr == "" && len(ips) > 0 {
+			connectAddr = net.JoinHostPort(ips[0].String(), port)
+		}
+
+		dialer := &net.Dialer{}
+		return dialer.DialContext(ctx, network, connectAddr)
+	}
+}
+
+func truncatePayloadForLog(payload json.RawMessage) string {
+	text := strings.TrimSpace(string(payload))
+	if text == "" {
+		return "<empty>"
+	}
+
+	const maxPayloadSnippet = 512
+	if len(text) <= maxPayloadSnippet {
+		return text
+	}
+
+	return text[:maxPayloadSnippet] + "..."
 }
 
 func verifyPaddleSignature(signatureHeader string, body []byte, secret string) bool {
