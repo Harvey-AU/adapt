@@ -141,6 +141,56 @@ type paddleTransactionData struct {
 	Details        paddleTransactionDetails `json:"details"`
 }
 
+type paddleRuntimeConfig struct {
+	sandbox       bool
+	apiKey        string
+	webhookSecret string
+	baseURL       string
+}
+
+func getPaddleRuntimeConfig() paddleRuntimeConfig {
+	sandbox := false
+	if raw := strings.TrimSpace(os.Getenv("PADDLE_SANDBOX")); raw != "" {
+		if parsed, err := strconv.ParseBool(raw); err == nil {
+			sandbox = parsed
+		}
+	}
+
+	apiKey := envFirst("PADDLE_API_KEY")
+	webhookSecret := envFirst("PADDLE_WEBHOOK_SECRET")
+	baseURL := envFirst("PADDLE_API_BASE_URL")
+	if sandbox {
+		apiKey = envFirst("PADDLE_API_KEY_SANDBOX")
+		webhookSecret = envFirst("PADDLE_WEBHOOK_SECRET_SANDBOX")
+		baseURL = envFirst("PADDLE_API_BASE_URL_SANDBOX")
+	}
+
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if baseURL == "" {
+		if sandbox {
+			baseURL = "https://sandbox-api.paddle.com"
+		} else {
+			baseURL = "https://api.paddle.com"
+		}
+	}
+
+	return paddleRuntimeConfig{
+		sandbox:       sandbox,
+		apiKey:        strings.TrimSpace(apiKey),
+		webhookSecret: strings.TrimSpace(webhookSecret),
+		baseURL:       baseURL,
+	}
+}
+
+func envFirst(names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 // BillingHandler handles GET /v1/billing.
 func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 	logger := loggerWithRequest(r)
@@ -155,14 +205,16 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	billing, err := h.DB.GetOrganizationBilling(r.Context(), orgID)
+	paddleCfg := getPaddleRuntimeConfig()
+
+	billing, err := h.DB.GetOrganizationBilling(r.Context(), orgID, paddleCfg.sandbox)
 	if err != nil {
 		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to load billing overview")
 		InternalError(w, r, fmt.Errorf("failed to load billing overview: %w", err))
 		return
 	}
 
-	billingEnabled := strings.TrimSpace(os.Getenv("PADDLE_API_KEY")) != ""
+	billingEnabled := paddleCfg.apiKey != ""
 
 	response := map[string]any{
 		"plan_id":              billing.PlanID,
@@ -291,12 +343,21 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		monthlyPriceCents int
 		paddlePriceID     sql.NullString
 	)
-	// #nosec G701 -- query text is constant SQL with positional parameters only
-	err := h.DB.GetDB().QueryRowContext(r.Context(), `
+	paddleCfg := getPaddleRuntimeConfig()
+	planQuery := `
 		SELECT name, display_name, monthly_price_cents, paddle_price_id
 		FROM plans
 		WHERE id = $1 AND is_active = true
-	`, req.PlanID).Scan(&planName, &planDisplayName, &monthlyPriceCents, &paddlePriceID)
+	`
+	if paddleCfg.sandbox {
+		planQuery = `
+			SELECT name, display_name, monthly_price_cents, paddle_price_id_sandbox
+			FROM plans
+			WHERE id = $1 AND is_active = true
+		`
+	}
+	// #nosec G701 -- query text is constant SQL with positional parameters only
+	err := h.DB.GetDB().QueryRowContext(r.Context(), planQuery, req.PlanID).Scan(&planName, &planDisplayName, &monthlyPriceCents, &paddlePriceID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			BadRequest(w, r, "Plan not found")
@@ -329,7 +390,7 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if strings.TrimSpace(os.Getenv("PADDLE_API_KEY")) == "" {
+	if paddleCfg.apiKey == "" {
 		ServiceUnavailable(w, r, "Billing is not configured")
 		return
 	}
@@ -411,14 +472,23 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 	if ok := h.requireOrganisationAdmin(w, r, orgID, userClaims.UserID); !ok {
 		return
 	}
+	paddleCfg := getPaddleRuntimeConfig()
 
 	var customerID sql.NullString
-	// #nosec G701 -- query text is constant SQL with positional parameters only
-	if err := h.DB.GetDB().QueryRowContext(r.Context(), `
+	customerQuery := `
 		SELECT paddle_customer_id
 		FROM organisations
 		WHERE id = $1
-	`, orgID).Scan(&customerID); err != nil {
+	`
+	if paddleCfg.sandbox {
+		customerQuery = `
+			SELECT paddle_customer_id_sandbox
+			FROM organisations
+			WHERE id = $1
+		`
+	}
+	// #nosec G701 -- query text is constant SQL with positional parameters only
+	if err := h.DB.GetDB().QueryRowContext(r.Context(), customerQuery, orgID).Scan(&customerID); err != nil {
 		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to load billing customer")
 		InternalError(w, r, fmt.Errorf("failed to load billing customer: %w", err))
 		return
@@ -473,7 +543,8 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webhookSecret := strings.TrimSpace(os.Getenv("PADDLE_WEBHOOK_SECRET"))
+	paddleCfg := getPaddleRuntimeConfig()
+	webhookSecret := paddleCfg.webhookSecret
 	if webhookSecret == "" {
 		ServiceUnavailable(w, r, "Paddle webhook secret is not configured")
 		return
@@ -616,6 +687,8 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventType string, data json.RawMessage) error {
+	paddleCfg := getPaddleRuntimeConfig()
+
 	if len(data) == 0 {
 		requestID, _ := ctx.Value(requestIDKey).(string)
 		if requestID == "" {
@@ -640,13 +713,34 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 	if strings.HasPrefix(eventType, "transaction.") {
 		subscriptionID = lookup.SubscriptionID
 	}
-	if orgID == "" && subscriptionID != "" {
-		if err := h.DB.GetDB().QueryRowContext(ctx, `
+	subscriptionLookupQuery := `
+		SELECT id
+		FROM organisations
+		WHERE paddle_subscription_id = $1
+		LIMIT 1
+	`
+	customerLookupQuery := `
+		SELECT id
+		FROM organisations
+		WHERE paddle_customer_id = $1
+		LIMIT 1
+	`
+	if paddleCfg.sandbox {
+		subscriptionLookupQuery = `
 			SELECT id
 			FROM organisations
-			WHERE paddle_subscription_id = $1
+			WHERE paddle_subscription_id_sandbox = $1
 			LIMIT 1
-		`, subscriptionID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		`
+		customerLookupQuery = `
+			SELECT id
+			FROM organisations
+			WHERE paddle_customer_id_sandbox = $1
+			LIMIT 1
+		`
+	}
+	if orgID == "" && subscriptionID != "" {
+		if err := h.DB.GetDB().QueryRowContext(ctx, subscriptionLookupQuery, subscriptionID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.Warn().
 				Err(err).
 				Str("subscription_id", subscriptionID).
@@ -654,12 +748,7 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 		}
 	}
 	if orgID == "" && customerID != "" {
-		if err := h.DB.GetDB().QueryRowContext(ctx, `
-			SELECT id
-			FROM organisations
-			WHERE paddle_customer_id = $1
-			LIMIT 1
-		`, customerID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := h.DB.GetDB().QueryRowContext(ctx, customerLookupQuery, customerID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.Warn().
 				Err(err).
 				Str("customer_id", customerID).
@@ -705,7 +794,7 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 			sub.CurrentBillingPeriod.EndsAt,
 		)
 
-		_, err := h.DB.GetDB().ExecContext(ctx, `
+		updateSubscriptionQuery := `
 			UPDATE organisations o
 			SET
 				paddle_customer_id = COALESCE(NULLIF($2, ''), o.paddle_customer_id),
@@ -716,7 +805,23 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 				paddle_updated_at = NOW(),
 				updated_at = NOW()
 			WHERE o.id = $1
-		`, orgID, customerID, subscriptionID, status, periodEnd, priceID)
+		`
+		if paddleCfg.sandbox {
+			updateSubscriptionQuery = `
+				UPDATE organisations o
+				SET
+					paddle_customer_id_sandbox = COALESCE(NULLIF($2, ''), o.paddle_customer_id_sandbox),
+					paddle_subscription_id_sandbox = COALESCE(NULLIF($3, ''), o.paddle_subscription_id_sandbox),
+					subscription_status_sandbox = COALESCE(NULLIF($4, ''), o.subscription_status_sandbox),
+					current_period_ends_at_sandbox = COALESCE($5, o.current_period_ends_at_sandbox),
+					plan_id = COALESCE((SELECT id FROM plans WHERE paddle_price_id_sandbox = NULLIF($6, '') LIMIT 1), o.plan_id),
+					paddle_updated_at_sandbox = NOW(),
+					updated_at = NOW()
+				WHERE o.id = $1
+			`
+		}
+
+		_, err := h.DB.GetDB().ExecContext(ctx, updateSubscriptionQuery, orgID, customerID, subscriptionID, status, periodEnd, priceID)
 		return err
 	}
 
@@ -783,15 +888,16 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 }
 
 func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payload any) (json.RawMessage, error) {
-	apiKey := strings.TrimSpace(os.Getenv("PADDLE_API_KEY"))
+	paddleCfg := getPaddleRuntimeConfig()
+	apiKey := paddleCfg.apiKey
 	if apiKey == "" {
+		if paddleCfg.sandbox {
+			return nil, fmt.Errorf("PADDLE_API_KEY_SANDBOX is not configured")
+		}
 		return nil, fmt.Errorf("PADDLE_API_KEY is not configured")
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("PADDLE_API_BASE_URL")), "/")
-	if baseURL == "" {
-		baseURL = "https://api.paddle.com"
-	}
+	baseURL := paddleCfg.baseURL
 
 	var body io.Reader = http.NoBody
 	if payload != nil {

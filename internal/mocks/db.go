@@ -24,8 +24,8 @@ func (m *MockDB) GetDB() *sql.DB {
 }
 
 // GetOrganizationBilling mocks retrieval of organisation billing details.
-func (m *MockDB) GetOrganizationBilling(ctx context.Context, orgID string) (db.OrganizationBilling, error) {
-	args := m.Called(ctx, orgID)
+func (m *MockDB) GetOrganizationBilling(ctx context.Context, orgID string, sandbox bool) (db.OrganizationBilling, error) {
+	args := m.Called(ctx, orgID, sandbox)
 	if args.Get(0) == nil {
 		return db.OrganizationBilling{}, args.Error(1)
 	}

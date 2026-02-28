@@ -52,7 +52,7 @@ type OrganizationBilling struct {
 }
 
 // GetOrganizationBilling returns billing details for an organisation.
-func (db *DB) GetOrganizationBilling(ctx context.Context, orgID string) (OrganizationBilling, error) {
+func (db *DB) GetOrganizationBilling(ctx context.Context, orgID string, sandbox bool) (OrganizationBilling, error) {
 	query := `
 		SELECT
 			o.plan_id,
@@ -66,6 +66,21 @@ func (db *DB) GetOrganizationBilling(ctx context.Context, orgID string) (Organiz
 		JOIN plans p ON p.id = o.plan_id
 		WHERE o.id = $1
 	`
+	if sandbox {
+		query = `
+			SELECT
+				o.plan_id,
+				p.display_name,
+				p.monthly_price_cents,
+				o.subscription_status_sandbox,
+				o.paddle_customer_id_sandbox,
+				o.paddle_subscription_id_sandbox,
+				o.current_period_ends_at_sandbox
+			FROM organisations o
+			JOIN plans p ON p.id = o.plan_id
+			WHERE o.id = $1
+		`
+	}
 
 	var billing OrganizationBilling
 	if err := db.client.QueryRowContext(ctx, query, orgID).Scan(

@@ -167,8 +167,13 @@ jobs:
               WEBFLOW_CLIENT_SECRET="${{ secrets.WEBFLOW_CLIENT_SECRET }}" \
               GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
               GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              PADDLE_SANDBOX="${{ secrets.PADDLE_SANDBOX }}" \
               PADDLE_API_KEY="${{ secrets.PADDLE_API_KEY }}" \
+              PADDLE_API_KEY_SANDBOX="${{ secrets.PADDLE_API_KEY_SANDBOX }}" \
               PADDLE_WEBHOOK_SECRET="${{ secrets.PADDLE_WEBHOOK_SECRET }}" \
+              PADDLE_WEBHOOK_SECRET_SANDBOX="${{ secrets.PADDLE_WEBHOOK_SECRET_SANDBOX }}" \
+              PADDLE_API_BASE_URL="${{ secrets.PADDLE_API_BASE_URL }}" \
+              PADDLE_API_BASE_URL_SANDBOX="${{ secrets.PADDLE_API_BASE_URL_SANDBOX }}" \
               GOOGLE_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/google/callback" \
               WEBFLOW_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/webflow/callback" \
               APP_URL="https://$APP_NAME.fly.dev" \
@@ -188,8 +193,13 @@ jobs:
               WEBFLOW_CLIENT_SECRET="${{ secrets.WEBFLOW_CLIENT_SECRET }}" \
               GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
               GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              PADDLE_SANDBOX="${{ secrets.PADDLE_SANDBOX }}" \
               PADDLE_API_KEY="${{ secrets.PADDLE_API_KEY }}" \
+              PADDLE_API_KEY_SANDBOX="${{ secrets.PADDLE_API_KEY_SANDBOX }}" \
               PADDLE_WEBHOOK_SECRET="${{ secrets.PADDLE_WEBHOOK_SECRET }}" \
+              PADDLE_WEBHOOK_SECRET_SANDBOX="${{ secrets.PADDLE_WEBHOOK_SECRET_SANDBOX }}" \
+              PADDLE_API_BASE_URL="${{ secrets.PADDLE_API_BASE_URL }}" \
+              PADDLE_API_BASE_URL_SANDBOX="${{ secrets.PADDLE_API_BASE_URL_SANDBOX }}" \
               GOOGLE_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/google/callback" \
               WEBFLOW_REDIRECT_URI="https://$APP_NAME.fly.dev/v1/integrations/webflow/callback" \
               APP_URL="https://$APP_NAME.fly.dev" \

@@ -95,7 +95,7 @@ func buildConfigSnippet() ([]byte, error) {
 // DBClient is an interface for database operations
 type DBClient interface {
 	GetDB() *sql.DB
-	GetOrganizationBilling(ctx context.Context, orgID string) (db.OrganizationBilling, error)
+	GetOrganizationBilling(ctx context.Context, orgID string, sandbox bool) (db.OrganizationBilling, error)
 	GetOrCreateUser(userID, email string, orgID *string) (*db.User, error)
 	GetJobStats(organisationID string, startDate, endDate *time.Time) (*db.JobStats, error)
 	GetJobActivity(organisationID string, startDate, endDate *time.Time) ([]db.ActivityPoint, error)
