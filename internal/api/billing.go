@@ -150,6 +150,7 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	row := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT
 			o.plan_id,
@@ -221,6 +222,7 @@ func (h *Handler) BillingInvoicesHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	rows, err := h.DB.GetDB().QueryContext(r.Context(), `
 		SELECT invoice_number, status, currency_code, total_amount_cents, billed_at, invoice_url
 		FROM billing_invoices
@@ -315,6 +317,7 @@ func (h *Handler) BillingCheckoutHandler(w http.ResponseWriter, r *http.Request)
 		monthlyPriceCents int
 		paddlePriceID     sql.NullString
 	)
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT name, display_name, monthly_price_cents, paddle_price_id
 		FROM plans
@@ -436,6 +439,7 @@ func (h *Handler) BillingPortalHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var customerID sql.NullString
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	if err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT paddle_customer_id
 		FROM organisations
@@ -530,6 +534,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		Str("event_type", event.EventType).
 		Msg("Paddle webhook received")
 
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	insertRes, err := h.DB.GetDB().ExecContext(r.Context(), `
 		INSERT INTO paddle_webhook_events (event_id, event_type, status, received_at)
 		VALUES ($1, $2, 'processing', NOW())
@@ -556,6 +561,7 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		errMsg = processErr.Error()
 	}
 
+	// #nosec G701 -- query text is constant SQL with positional parameters only
 	_, _ = h.DB.GetDB().ExecContext(r.Context(), `
 		UPDATE paddle_webhook_events
 		SET status = $2, processed_at = NOW(), error_message = NULLIF($3, '')
@@ -604,7 +610,7 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 			WHERE paddle_subscription_id = $1
 			LIMIT 1
 		`, subscriptionID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			log.Debug().
+			log.Warn().
 				Err(err).
 				Str("subscription_id", subscriptionID).
 				Msg("Failed fallback lookup by paddle subscription ID")
@@ -617,7 +623,7 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventType strin
 			WHERE paddle_customer_id = $1
 			LIMIT 1
 		`, customerID).Scan(&orgID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			log.Debug().
+			log.Warn().
 				Err(err).
 				Str("customer_id", customerID).
 				Msg("Failed fallback lookup by paddle customer ID")
@@ -754,6 +760,7 @@ func (h *Handler) callPaddleAPI(ctx context.Context, method, path string, payloa
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
+	// #nosec G704 -- Paddle endpoint is fixed base URL + known API path
 	resp, err := paddleHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("paddle API request failed: %w", err)

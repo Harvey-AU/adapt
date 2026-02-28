@@ -328,10 +328,18 @@ func startTestJWKSWithES256(tb testing.TB) (*ecdsa.PrivateKey, string, string, f
 
 	kid := "test-key-es256"
 	publicKey := &privateKey.PublicKey
+	keySize := (publicKey.Params().BitSize + 7) / 8
+	point, err := publicKey.Bytes()
+	require.NoError(tb, err)
+	require.GreaterOrEqual(tb, len(point), 1+2*keySize)
+	x := make([]byte, keySize)
+	y := make([]byte, keySize)
+	copy(x, point[1:1+keySize])
+	copy(y, point[1+keySize:1+2*keySize])
 
 	// Encode EC public key coordinates
-	x := base64.RawURLEncoding.EncodeToString(publicKey.X.Bytes())
-	y := base64.RawURLEncoding.EncodeToString(publicKey.Y.Bytes())
+	xEnc := base64.RawURLEncoding.EncodeToString(x)
+	yEnc := base64.RawURLEncoding.EncodeToString(y)
 
 	jwksPayload := struct {
 		Keys []map[string]string `json:"keys"`
@@ -343,8 +351,8 @@ func startTestJWKSWithES256(tb testing.TB) (*ecdsa.PrivateKey, string, string, f
 				"alg": "ES256",
 				"use": "sig",
 				"kid": kid,
-				"x":   x,
-				"y":   y,
+				"x":   xEnc,
+				"y":   yEnc,
 			},
 		},
 	}

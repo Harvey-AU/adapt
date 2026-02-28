@@ -102,13 +102,13 @@ func TestDiscoverSitemapsAndRobots(t *testing.T) {
 Disallow: /admin
 Allow: /
 Sitemap: https://example.com/sitemap.xml
-`))
+`)) //nolint:gosec // Test writes static XML fixture data
 		case "/sitemap.xml":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url><loc>https://example.com/page1</loc></url>
-</urlset>`))
+</urlset>`)) //nolint:gosec // Test writes static XML fixture data
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -117,7 +117,8 @@ Sitemap: https://example.com/sitemap.xml
 
 	c := &Crawler{
 		config: &Config{
-			UserAgent: "TestBot/1.0",
+			UserAgent:     "TestBot/1.0",
+			SkipSSRFCheck: true,
 		},
 	}
 
@@ -172,27 +173,29 @@ func TestParseSitemap(t *testing.T) {
 		case "/sitemap.xml":
 			w.Header().Set("Content-Type", "application/xml")
 			w.WriteHeader(http.StatusOK)
+			// #nosec G705 -- Test writes static XML fixture responses
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url><loc>http://` + r.Host + `/page1</loc></url>
 	<url><loc>http://` + r.Host + `/page2</loc></url>
-</urlset>`))
+</urlset>`)) //nolint:gosec // Test writes static XML fixture responses
 		case "/sitemap_index.xml":
 			w.Header().Set("Content-Type", "application/xml")
 			w.WriteHeader(http.StatusOK)
+			// #nosec G705 -- Test writes static XML fixture responses
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<sitemap><loc>http://` + r.Host + `/sitemap1.xml</loc></sitemap>
 	<sitemap><loc>http://` + r.Host + `/sitemap2.xml</loc></sitemap>
-</sitemapindex>`))
+</sitemapindex>`)) //nolint:gosec // Test writes static XML fixture responses
 		case "/empty.xml":
 			w.Header().Set("Content-Type", "application/xml")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`))
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`)) //nolint:gosec // Test writes static XML fixture responses
 		case "/invalid.xml":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`not xml`))
+			_, _ = w.Write([]byte(`not xml`)) //nolint:gosec // Test writes static XML fixture responses
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -201,7 +204,8 @@ func TestParseSitemap(t *testing.T) {
 
 	c := &Crawler{
 		config: &Config{
-			UserAgent: "TestBot/1.0",
+			UserAgent:     "TestBot/1.0",
+			SkipSSRFCheck: true,
 		},
 	}
 
@@ -396,18 +400,18 @@ func TestParseSitemapGzip(t *testing.T) {
 			// Serve gzipped content without Content-Encoding header (file-based compression)
 			w.Header().Set("Content-Type", "application/gzip")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(gzipContent(sitemapXML))
+			_, _ = w.Write(gzipContent(sitemapXML)) //nolint:gosec // Test writes static XML fixture responses
 		case "/sitemap-encoded.xml":
 			// Serve with Content-Encoding: gzip header (transfer encoding)
 			w.Header().Set("Content-Type", "application/xml")
 			w.Header().Set("Content-Encoding", "gzip")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(gzipContent(sitemapXML))
+			_, _ = w.Write(gzipContent(sitemapXML)) //nolint:gosec // Test writes static XML fixture responses
 		case "/sitemap.xml":
 			// Normal uncompressed sitemap
 			w.Header().Set("Content-Type", "application/xml")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(sitemapXML)
+			_, _ = w.Write(sitemapXML) //nolint:gosec // Test writes static XML fixture responses
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -416,7 +420,8 @@ func TestParseSitemapGzip(t *testing.T) {
 
 	c := &Crawler{
 		config: &Config{
-			UserAgent: "TestBot/1.0",
+			UserAgent:     "TestBot/1.0",
+			SkipSSRFCheck: true,
 		},
 	}
 

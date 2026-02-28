@@ -113,6 +113,7 @@ func (c *Crawler) DiscoverSitemapsAndRobots(ctx context.Context, domain string) 
 			}
 			req.Header.Set("User-Agent", c.config.UserAgent)
 
+			// #nosec G704 -- sitemap URLs are constrained to generated common paths and validated before request
 			resp, err := client.Do(req)
 			if err != nil {
 				log.Debug().Err(err).Str("url", sitemapURL).Msg("Error fetching sitemap")
@@ -200,7 +201,18 @@ func (c *Crawler) ParseSitemap(ctx context.Context, sitemapURL string) ([]string
 	// Request gzip encoding if server supports it
 	req.Header.Set("Accept-Encoding", "gzip")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	transport := &http.Transport{}
+	if c.config == nil || !c.config.SkipSSRFCheck {
+		transport.DialContext = ssrfSafeDialContext()
+	}
+
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+	}
+
+	// Use SSRF-safe dialer for sitemap fetches.
+	// #nosec G704 -- sitemap URL is caller-provided and validated in crawl policy
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

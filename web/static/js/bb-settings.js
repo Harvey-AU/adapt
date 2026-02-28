@@ -1210,8 +1210,21 @@
       );
 
       if (response?.checkout_url) {
-        window.location.href = response.checkout_url;
-        return;
+        try {
+          const parsed = new URL(response.checkout_url);
+          if (
+            parsed.protocol !== "http:" &&
+            parsed.protocol !== "https:"
+          ) {
+            throw new Error("Unsupported checkout URL scheme");
+          }
+
+          window.location.href = parsed.href;
+          return;
+        } catch (_err) {
+          showSettingsToast("error", "Invalid checkout URL returned");
+          console.error("Invalid checkout URL:", response.checkout_url);
+        }
       }
 
       showSettingsToast("success", "Plan updated");
