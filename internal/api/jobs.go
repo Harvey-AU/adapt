@@ -267,6 +267,7 @@ func (h *Handler) createJobFromRequest(ctx context.Context, user *db.User, req C
 
 		// Fail fast when org quota is already exhausted so users get immediate feedback.
 		var remaining int
+		// #nosec G701 -- stored function call with fixed SQL and positional argument only
 		if err := h.DB.GetDB().QueryRowContext(ctx, `SELECT get_daily_quota_remaining($1::uuid)`, effectiveOrgID).Scan(&remaining); err != nil {
 			return nil, fmt.Errorf("failed to check daily quota remaining: %w", err)
 		}
@@ -491,6 +492,7 @@ func (h *Handler) fetchJobResponse(ctx context.Context, jobID string, organisati
 		args = append(args, *organisationID)
 	}
 
+	// #nosec G701 -- query template is local constant with safe argument binding
 	row := h.DB.GetDB().QueryRowContext(ctx, query, args...)
 	err := row.Scan(
 		// Task counts
@@ -594,6 +596,7 @@ func (h *Handler) updateJob(w http.ResponseWriter, r *http.Request, jobID string
 
 	// Verify job belongs to user's active organisation
 	var jobOrgID string
+	// #nosec G701 -- query text is constant and jobID is bound as $1.
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT organisation_id FROM jobs WHERE id = $1
 	`, jobID).Scan(&jobOrgID)
@@ -647,6 +650,7 @@ func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request, jobID string
 
 	// Verify job belongs to user's active organisation
 	var jobOrgID string
+	// #nosec G701 -- fixed SQL with positional parameters only
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT organisation_id FROM jobs WHERE id = $1
 	`, jobID).Scan(&jobOrgID)
@@ -769,6 +773,7 @@ func (h *Handler) validateJobAccess(w http.ResponseWriter, r *http.Request, jobI
 
 	// Verify job belongs to user's active organisation
 	var jobOrgID string
+	// #nosec G701 -- SQL template is constant and jobID is bound as positional parameter.
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT organisation_id FROM jobs WHERE id = $1
 	`, jobID).Scan(&jobOrgID)
@@ -1068,6 +1073,7 @@ func (h *Handler) getJobTasks(w http.ResponseWriter, r *http.Request, jobID stri
 	// Get total count
 	var total int
 	countArgs := queries.Args[:len(queries.Args)-2] // Remove limit and offset for count query
+	// #nosec G701 -- count query is generated from safe whitelisted params and args are bound
 	err := h.DB.GetDB().QueryRowContext(r.Context(), queries.CountQuery, countArgs...).Scan(&total)
 	if err != nil {
 		if HandlePoolSaturation(w, r, err) {
@@ -1079,6 +1085,7 @@ func (h *Handler) getJobTasks(w http.ResponseWriter, r *http.Request, jobID stri
 	}
 
 	// Get tasks
+	// #nosec G701 -- Query is built from whitelisted sort/order parameters with bind variables.
 	rows, err := h.DB.GetDB().QueryContext(r.Context(), queries.SelectQuery, queries.Args...)
 	if err != nil {
 		if HandlePoolSaturation(w, r, err) {
@@ -1175,6 +1182,7 @@ func (h *Handler) serveJobExport(w http.ResponseWriter, r *http.Request, jobID s
 		LIMIT 10000
 	`, whereClause)
 
+	// #nosec G701 -- query includes only whitelisted whereClause fragments, jobID remains parameterized.
 	rows, err := h.DB.GetDB().QueryContext(r.Context(), query, jobID)
 	if err != nil {
 		logger.Error().Err(err).Str("job_id", jobID).Msg("Failed to export tasks")
@@ -1195,6 +1203,7 @@ func (h *Handler) serveJobExport(w http.ResponseWriter, r *http.Request, jobID s
 	var domain, status string
 	var createdAt time.Time
 	var completedAt sql.NullTime
+	// #nosec G701 -- SQL template is constant and id is bound as positional parameter.
 	err = h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT d.name, j.status, j.created_at, j.completed_at
 		FROM jobs j
