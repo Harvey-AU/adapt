@@ -159,6 +159,7 @@ func (c *Client) setHeaders(req *http.Request) {
 
 // do executes the request and handles the response.
 func (c *Client) do(req *http.Request) error {
+	// #nosec G704 -- API base URL is configured and endpoint is fixed by Loops client
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("loops: request failed: %w", err)

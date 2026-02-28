@@ -862,6 +862,7 @@ func (c *Crawler) CheckCacheStatus(ctx context.Context, targetURL string) (strin
 		Transport: transport,
 	}
 
+	// #nosec G704 -- request URL is validated by configured URL checks before calling cache-status probe
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

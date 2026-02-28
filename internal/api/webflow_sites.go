@@ -379,6 +379,7 @@ func (h *Handler) updateSiteSchedule(w http.ResponseWriter, r *http.Request, sit
 		} else {
 			// Get or create domain for the scheduler
 			var domainID int
+			// #nosec G701 -- SQL template is constant and normalizedDomain is bound as positional parameter.
 			err := h.DB.GetDB().QueryRowContext(ctx, `
 				INSERT INTO domains(name) VALUES($1)
 				ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name
@@ -700,6 +701,8 @@ func (h *Handler) fetchWebflowSites(ctx context.Context, token string) ([]Webflo
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("accept", "application/json")
 
+	// #nosec G704 -- URL is fixed to Webflow sites endpoint.
+	// #nosec G704 -- endpoint is fixed and uses user-verified site context.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Webflow API: %w", err)
@@ -733,6 +736,7 @@ func (h *Handler) fetchWebflowSiteByID(ctx context.Context, token, siteID string
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("accept", "application/json")
 
+	// #nosec G704 -- endpoint is derived from validated siteID and fixed API path.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Webflow API: %w", err)
@@ -779,6 +783,7 @@ func (h *Handler) registerWebflowWebhook(ctx context.Context, token, siteID, web
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
+	// #nosec G704 -- endpoint is derived from validated siteID and fixed API path.
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to call Webflow API: %w", err)
@@ -822,6 +827,7 @@ func (h *Handler) findExistingWebhook(ctx context.Context, token, siteID, webhoo
 	req.Header.Set("accept", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
+	// #nosec G704 -- endpoint is derived from validated siteID and fixed API path.
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to call Webflow API: %w", err)
@@ -862,6 +868,7 @@ func (h *Handler) deleteWebflowWebhook(ctx context.Context, token, webhookID str
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	client := &http.Client{Timeout: 10 * time.Second}
+	// #nosec G704 -- endpoint is derived from validated webhookID and fixed API path.
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to call Webflow API: %w", err)

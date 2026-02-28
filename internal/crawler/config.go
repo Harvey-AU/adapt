@@ -17,7 +17,7 @@ type Config struct {
 	Env            string        // Environment (development/production)
 	LogLevel       string        // Logging level
 	DatabaseURL    string        // Database connection URL
-	AuthToken      string        // Database authentication token
+	AuthToken      string        // #nosec G117 -- Database authentication token is an intentional config field
 	SentryDSN      string        // Sentry DSN for error tracking
 	FindLinks      bool          // Whether to extract links (e.g. PDFs/docs) from pages
 	SkipSSRFCheck  bool          // Skip SSRF protection (for tests only, never enable in production)

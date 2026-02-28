@@ -34,7 +34,7 @@ type Config struct {
 	Host            string        // Database host
 	Port            string        // Database port
 	User            string        // Database user
-	Password        string        // Database password
+	Password        string        // #nosec G117 -- database password is expected config field
 	Database        string        // Database name
 	SSLMode         string        // SSL mode (disable, require, verify-ca, verify-full)
 	MaxIdleConns    int           // Maximum number of idle connections

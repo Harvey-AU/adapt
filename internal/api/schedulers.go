@@ -137,6 +137,7 @@ func (h *Handler) createScheduler(w http.ResponseWriter, r *http.Request) {
 
 	// Get or create domain
 	var domainID int
+	// #nosec G701 -- SQL template is constant and domain name is bound as positional parameter.
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
 		INSERT INTO domains(name) VALUES($1)
 		ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name
@@ -150,6 +151,7 @@ func (h *Handler) createScheduler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if scheduler already exists for this domain/organisation
 	var existingID string
+	// #nosec G701 -- SQL template is constant and parameters are bound.
 	err = h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT id FROM schedulers
 		WHERE domain_id = $1 AND organisation_id = $2
@@ -498,6 +500,7 @@ func (h *Handler) getSchedulerJobs(w http.ResponseWriter, r *http.Request, sched
 		LIMIT $3 OFFSET $4
 	`
 
+	// #nosec G701 -- query text is constant; schedulerID and orgID are bound parameters.
 	rows, err := h.DB.GetDB().QueryContext(r.Context(), query, schedulerID, orgID, limit, offset)
 	if err != nil {
 		logger.Error().Err(err).Str("scheduler_id", schedulerID).Msg("Failed to query scheduler jobs")
@@ -536,6 +539,7 @@ func (h *Handler) getSchedulerJobs(w http.ResponseWriter, r *http.Request, sched
 
 	// Get total count - SECURITY FIX: Added organisation_id filter
 	var total int
+	// #nosec G701 -- query text is constant; schedulerID and orgID are bound parameters.
 	err = h.DB.GetDB().QueryRowContext(r.Context(), `
 		SELECT COUNT(*) FROM jobs WHERE scheduler_id = $1 AND organisation_id = $2
 	`, schedulerID, orgID).Scan(&total)

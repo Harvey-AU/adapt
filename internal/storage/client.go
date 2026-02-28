@@ -43,6 +43,7 @@ func (c *Client) Upload(ctx context.Context, bucket, path string, data []byte, c
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("x-upsert", "true") // Overwrite if exists
 
+	// #nosec G704 -- request target is derived from configured Supabase storage base URL
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload file: %w", err)
@@ -75,6 +76,7 @@ func (c *Client) GetSignedURL(ctx context.Context, bucket, path string, expiresI
 	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
 	req.Header.Set("Content-Type", "application/json")
 
+	// #nosec G704 -- request target is derived from configured Supabase storage base URL
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to get signed URL: %w", err)
@@ -109,6 +111,7 @@ func (c *Client) Delete(ctx context.Context, bucket, path string) error {
 
 	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
 
+	// #nosec G704 -- request target is derived from configured Supabase storage base URL
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
