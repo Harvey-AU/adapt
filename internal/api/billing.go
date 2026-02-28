@@ -608,11 +608,19 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// #nosec G701 -- query text is constant SQL with positional parameters only
-	_, _ = h.DB.GetDB().ExecContext(r.Context(), `
+	if _, statusUpdateErr := h.DB.GetDB().ExecContext(r.Context(), `
 		UPDATE paddle_webhook_events
 		SET status = $2, processed_at = NOW(), error_message = NULLIF($3, '')
 		WHERE event_id = $1
-	`, event.EventID, status, errMsg)
+	`, event.EventID, status, errMsg); statusUpdateErr != nil {
+		logger.Error().
+			Err(statusUpdateErr).
+			Str("event_id", event.EventID).
+			Str("event_type", event.EventType).
+			Msg("Failed to persist webhook event status")
+		InternalError(w, r, fmt.Errorf("failed to persist webhook event status: %w", statusUpdateErr))
+		return
+	}
 
 	if processErr != nil {
 		logger.Error().
