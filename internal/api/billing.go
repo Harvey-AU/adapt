@@ -155,39 +155,8 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// #nosec G701 -- query text is constant SQL with positional parameters only
-	row := h.DB.GetDB().QueryRowContext(r.Context(), `
-		SELECT
-			o.plan_id,
-			p.display_name,
-			p.monthly_price_cents,
-			o.subscription_status,
-			o.paddle_customer_id,
-			o.paddle_subscription_id,
-			o.current_period_ends_at
-		FROM organisations o
-		JOIN plans p ON p.id = o.plan_id
-		WHERE o.id = $1
-	`, orgID)
-
-	var (
-		planID             string
-		planDisplayName    string
-		monthlyPriceCents  int
-		subscriptionStatus string
-		paddleCustomerID   sql.NullString
-		paddleSubID        sql.NullString
-		currentPeriodEnds  sql.NullTime
-	)
-	if err := row.Scan(
-		&planID,
-		&planDisplayName,
-		&monthlyPriceCents,
-		&subscriptionStatus,
-		&paddleCustomerID,
-		&paddleSubID,
-		&currentPeriodEnds,
-	); err != nil {
+	billing, err := h.DB.GetOrganizationBilling(r.Context(), orgID)
+	if err != nil {
 		logger.Error().Err(err).Str("organisation_id", orgID).Msg("Failed to load billing overview")
 		InternalError(w, r, fmt.Errorf("failed to load billing overview: %w", err))
 		return
@@ -196,18 +165,18 @@ func (h *Handler) BillingHandler(w http.ResponseWriter, r *http.Request) {
 	billingEnabled := strings.TrimSpace(os.Getenv("PADDLE_API_KEY")) != ""
 
 	response := map[string]any{
-		"plan_id":              planID,
-		"plan_display_name":    planDisplayName,
-		"monthly_price_cents":  monthlyPriceCents,
-		"subscription_status":  subscriptionStatus,
+		"plan_id":              billing.PlanID,
+		"plan_display_name":    billing.DisplayName,
+		"monthly_price_cents":  billing.MonthlyPriceCents,
+		"subscription_status":  billing.SubscriptionStatus,
 		"billing_enabled":      billingEnabled,
-		"has_customer_account": paddleCustomerID.Valid && paddleCustomerID.String != "",
+		"has_customer_account": billing.PaddleCustomerID.Valid && billing.PaddleCustomerID.String != "",
 	}
-	if paddleSubID.Valid {
-		response["subscription_id"] = paddleSubID.String
+	if billing.PaddleSubscriptionID.Valid {
+		response["subscription_id"] = billing.PaddleSubscriptionID.String
 	}
-	if currentPeriodEnds.Valid {
-		response["current_period_ends_at"] = currentPeriodEnds.Time.UTC().Format(time.RFC3339)
+	if billing.CurrentPeriodEndsAt.Valid {
+		response["current_period_ends_at"] = billing.CurrentPeriodEndsAt.Time.UTC().Format(time.RFC3339)
 	}
 
 	WriteSuccess(w, r, map[string]any{"billing": response}, "Billing overview retrieved successfully")
@@ -648,6 +617,15 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventType string, data json.RawMessage) error {
 	if len(data) == 0 {
+		requestID, _ := ctx.Value(requestIDKey).(string)
+		if requestID == "" {
+			requestID = "unknown"
+		}
+		log.Info().
+			Str("event_id", eventID).
+			Str("event_type", eventType).
+			Str("request_id", requestID).
+			Msg("Paddle webhook received with empty data payload")
 		return nil
 	}
 
@@ -696,9 +674,12 @@ func (h *Handler) processPaddleWebhookEvent(ctx context.Context, eventID, eventT
 		log.Warn().
 			Str("event_id", eventID).
 			Str("event_type", eventType).
+			Str("customer_id", customerID).
+			Str("subscription_id", subscriptionID).
+			Str("paddle_entity_id", lookup.ID).
 			Str("request_id", requestID).
 			Str("payload", truncatePayloadForLog(data)).
-			Msg("Paddle webhook payload lacks organisation context")
+			Msg("Paddle webhook could not be mapped to an organisation")
 		return nil
 	}
 

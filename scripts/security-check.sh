@@ -80,12 +80,9 @@ else
   fi
 fi
 
-if [ "$EXIT_CODE" -ne 0 ]; then
-  echo -e "\nℹ️  golangci-lint issues above may be pre-existing or environment-related"
-fi
-
 if [ "$EXIT_CODE" -eq 0 ]; then
   echo -e "\n✅ All Security Checks Completed"
+  exit 0
 else
   echo -e "\n⚠️  Security Checks Failed"
   exit $EXIT_CODE

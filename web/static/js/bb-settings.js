@@ -1221,6 +1221,7 @@
         } catch (_err) {
           showSettingsToast("error", "Invalid checkout URL returned");
           console.error("Invalid checkout URL:", response.checkout_url);
+          return;
         }
       }
 
