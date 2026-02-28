@@ -545,12 +545,58 @@ func (h *Handler) PaddleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rows, _ := insertRes.RowsAffected(); rows == 0 {
-		logger.Debug().
-			Str("event_id", event.EventID).
-			Str("event_type", event.EventType).
-			Msg("Paddle webhook already processed")
-		WriteSuccess(w, r, nil, "Webhook already processed")
-		return
+		// #nosec G701 -- query text is constant SQL with positional parameters only
+		retryRes, retryErr := h.DB.GetDB().ExecContext(r.Context(), `
+			UPDATE paddle_webhook_events
+			SET status = 'processing', processed_at = NULL, error_message = NULL, received_at = NOW()
+			WHERE event_id = $1
+			  AND status = 'failed'
+		`, event.EventID)
+		if retryErr != nil {
+			InternalError(w, r, fmt.Errorf("failed to mark webhook for retry: %w", retryErr))
+			return
+		}
+
+		retryRows, _ := retryRes.RowsAffected()
+		if retryRows > 0 {
+			logger.Warn().
+				Str("event_id", event.EventID).
+				Str("event_type", event.EventType).
+				Msg("Paddle webhook failed previously; reprocessing")
+		} else {
+			var existingStatus string
+			// #nosec G701 -- query text is constant SQL with positional parameters only
+			if statusErr := h.DB.GetDB().QueryRowContext(r.Context(), `
+				SELECT status
+				FROM paddle_webhook_events
+				WHERE event_id = $1
+			`, event.EventID).Scan(&existingStatus); statusErr != nil {
+				if errors.Is(statusErr, sql.ErrNoRows) {
+					WriteSuccess(w, r, nil, "Webhook already processed")
+					return
+				}
+				InternalError(w, r, fmt.Errorf("failed to load webhook status: %w", statusErr))
+				return
+			}
+
+			if strings.EqualFold(strings.TrimSpace(existingStatus), "processing") {
+				logger.Debug().
+					Str("event_id", event.EventID).
+					Str("event_type", event.EventType).
+					Str("existing_status", existingStatus).
+					Msg("Paddle webhook already processing")
+				WriteSuccess(w, r, nil, "Webhook already processed")
+				return
+			}
+
+			logger.Debug().
+				Str("event_id", event.EventID).
+				Str("event_type", event.EventType).
+				Str("existing_status", existingStatus).
+				Msg("Paddle webhook already processed")
+			WriteSuccess(w, r, nil, "Webhook already processed")
+			return
+		}
 	}
 
 	processErr := h.processPaddleWebhookEvent(r.Context(), event.EventType, event.Data)

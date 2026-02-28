@@ -30,21 +30,23 @@ On merge, CI will:
 
 ### Fixed
 
-- **Security gate reliability**: `scripts/security-check.sh` now fails the pipeline
-  when `govulncheck` installation fails, preventing false-positive pass states.
-- **Security annotations**: Added targeted `#nosec` comments for intentionally safe
-  SQL templates and fixed external API call patterns so security lint stays strict
-  while preserving existing behaviour.
-- **Crawler hardening**: Applied SSRF-safe HTTP transport handling to sitemap fetches
-  and aligned sitemap tests with existing `SkipSSRFCheck` test configuration.
+- **Security gate reliability**: `scripts/security-check.sh` now fails the
+  pipeline when `govulncheck` installation fails, preventing false-positive pass
+  states.
+- **Security annotations**: Added targeted `#nosec` comments for intentionally
+  safe SQL templates and fixed external API call patterns so security lint stays
+  strict while preserving existing behaviour.
+- **Crawler hardening**: Applied SSRF-safe HTTP transport handling to sitemap
+  fetches and aligned sitemap tests with existing `SkipSSRFCheck` test
+  configuration.
 - **Paddle webhook diagnostics**: Escalated fallback mapping lookup failures to
   warning logs for better operational visibility.
-- **Checkout URL safety**: Validated `checkout_url` scheme before browser redirect
-  to `http`/`https` only.
-- **Auth test compatibility**: Updated ES256 JWT test fixtures to avoid deprecated
-  EC coordinate access and stay compatible with newer Go toolchains.
-- **Seed updates**: Added missing Paddle pricing seed migration data and refreshed
-  baseline seed SQL for pricing values.
+- **Checkout URL safety**: Validated `checkout_url` scheme before browser
+  redirect to `http`/`https` only.
+- **Auth test compatibility**: Updated ES256 JWT test fixtures to avoid
+  deprecated EC coordinate access and stay compatible with newer Go toolchains.
+- **Seed updates**: Added missing Paddle pricing seed migration data and
+  refreshed baseline seed SQL for pricing values.
 
 ## [0.27.0] – 2026-02-23
 

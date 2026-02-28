@@ -1212,10 +1212,7 @@
       if (response?.checkout_url) {
         try {
           const parsed = new URL(response.checkout_url);
-          if (
-            parsed.protocol !== "http:" &&
-            parsed.protocol !== "https:"
-          ) {
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
             throw new Error("Unsupported checkout URL scheme");
           }
 
