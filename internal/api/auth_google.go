@@ -55,8 +55,8 @@ var (
 type PendingGASession struct {
 	Accounts     []GA4Account  // Accounts fetched during OAuth
 	Properties   []GA4Property // Properties fetched when account selected (optional, for backwards compat)
-	RefreshToken string
-	AccessToken  string
+	RefreshToken string        // #nosec G117 -- Google OAuth refresh token flow data only
+	AccessToken  string        // #nosec G117 -- Google OAuth access token flow data only
 	State        string
 	UserID       string
 	Email        string
@@ -112,8 +112,8 @@ func getGoogleRedirectURI() string {
 
 // GoogleTokenResponse represents the response from Google's token endpoint
 type GoogleTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`  // #nosec G117 -- Google token response fields are expected
+	RefreshToken string `json:"refresh_token"` // #nosec G117 -- Google token response fields are expected
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 	Scope        string `json:"scope"`
@@ -381,8 +381,8 @@ func (h *Handler) SaveGoogleProperty(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		PropertyID   string `json:"property_id"`
 		PropertyName string `json:"property_name"`
-		RefreshToken string `json:"refresh_token"`
-		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"` // #nosec G117 -- request data intentionally carries refresh token
+		AccessToken  string `json:"access_token"`  // #nosec G117 -- request data intentionally carries access token
 		GoogleEmail  string `json:"google_email"`
 		GoogleUserID string `json:"google_user_id"`
 	}
@@ -796,6 +796,7 @@ func (h *Handler) fetchGoogleUserInfo(ctx context.Context, accessToken string) (
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
+	// #nosec G704 -- request URL is fixed Google endpoint with API token
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call userinfo endpoint: %w", err)
@@ -827,6 +828,7 @@ func (h *Handler) fetchGA4Accounts(ctx context.Context, accessToken string) ([]G
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
+	// #nosec G704 -- request URL is fixed Google endpoint with bearer token
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list accounts: %w", err)
@@ -870,6 +872,7 @@ func (h *Handler) fetchPropertiesForAccount(ctx context.Context, logger zerolog.
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
+	// #nosec G704 -- request URL is fixed Google endpoint with account-supplied path
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list properties: %w", err)
@@ -1547,7 +1550,7 @@ func (h *Handler) refreshGoogleAccessToken(refreshToken string) (string, error) 
 	}
 
 	var tokenResp struct {
-		AccessToken string `json:"access_token"`
+		AccessToken string `json:"access_token"` // #nosec G117 -- token response contains access token by design
 		ExpiresIn   int    `json:"expires_in"`
 		TokenType   string `json:"token_type"`
 	}

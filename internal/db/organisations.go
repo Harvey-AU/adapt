@@ -40,6 +40,64 @@ type DailyUsageEntry struct {
 	JobsCreated    int
 }
 
+// OrganizationBilling represents organisation billing details for API responses.
+type OrganizationBilling struct {
+	PlanID               string
+	DisplayName          string
+	MonthlyPriceCents    int
+	SubscriptionStatus   string
+	PaddleCustomerID     sql.NullString
+	PaddleSubscriptionID sql.NullString
+	CurrentPeriodEndsAt  sql.NullTime
+}
+
+// GetOrganizationBilling returns billing details for an organisation.
+func (db *DB) GetOrganizationBilling(ctx context.Context, orgID string, sandbox bool) (OrganizationBilling, error) {
+	query := `
+		SELECT
+			o.plan_id,
+			p.display_name,
+			p.monthly_price_cents,
+			o.subscription_status,
+			o.paddle_customer_id,
+			o.paddle_subscription_id,
+			o.current_period_ends_at
+		FROM organisations o
+		JOIN plans p ON p.id = o.plan_id
+		WHERE o.id = $1
+	`
+	if sandbox {
+		query = `
+			SELECT
+				o.plan_id,
+				p.display_name,
+				p.monthly_price_cents,
+				o.subscription_status_sandbox,
+				o.paddle_customer_id_sandbox,
+				o.paddle_subscription_id_sandbox,
+				o.current_period_ends_at_sandbox
+			FROM organisations o
+			JOIN plans p ON p.id = o.plan_id
+			WHERE o.id = $1
+		`
+	}
+
+	var billing OrganizationBilling
+	if err := db.client.QueryRowContext(ctx, query, orgID).Scan(
+		&billing.PlanID,
+		&billing.DisplayName,
+		&billing.MonthlyPriceCents,
+		&billing.SubscriptionStatus,
+		&billing.PaddleCustomerID,
+		&billing.PaddleSubscriptionID,
+		&billing.CurrentPeriodEndsAt,
+	); err != nil {
+		return OrganizationBilling{}, fmt.Errorf("failed to load organisation billing: %w", err)
+	}
+
+	return billing, nil
+}
+
 // GetOrganisationMemberRole returns the role for a user in an organisation.
 func (db *DB) GetOrganisationMemberRole(ctx context.Context, userID, organisationID string) (string, error) {
 	query := `

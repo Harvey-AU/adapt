@@ -35,10 +35,11 @@ func (h *Handler) createJobShareLink(w http.ResponseWriter, r *http.Request, job
 	dbConn := h.DB.GetDB()
 
 	var existingToken string
+	// #nosec G701 -- SQL template is constant and jobID is bound as positional parameter.
 	err := dbConn.QueryRowContext(ctx, `
-        SELECT token
-        FROM job_share_links
-        WHERE job_id = $1
+	        SELECT token
+	        FROM job_share_links
+	        WHERE job_id = $1
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY created_at DESC
@@ -78,10 +79,11 @@ func (h *Handler) createJobShareLink(w http.ResponseWriter, r *http.Request, job
 			return
 		}
 
+		// #nosec G701 -- SQL template is constant and inputs are positional parameters.
 		_, insertErr := dbConn.ExecContext(ctx, `
-            INSERT INTO job_share_links (job_id, token, created_by)
-            VALUES ($1, $2, $3)
-        `, jobID, candidate, user.ID)
+	            INSERT INTO job_share_links (job_id, token, created_by)
+	            VALUES ($1, $2, $3)
+	        `, jobID, candidate, user.ID)
 		if insertErr == nil {
 			token = candidate
 			break
@@ -124,9 +126,10 @@ func (h *Handler) getJobShareLink(w http.ResponseWriter, r *http.Request, jobID 
 	}
 
 	var token string
+	// #nosec G701 -- SQL template is constant and jobID is bound as positional parameter.
 	err := h.DB.GetDB().QueryRowContext(r.Context(), `
-        SELECT token
-        FROM job_share_links
+	        SELECT token
+	        FROM job_share_links
         WHERE job_id = $1
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
@@ -169,10 +172,11 @@ func (h *Handler) revokeJobShareLink(w http.ResponseWriter, r *http.Request, job
 		return
 	}
 
+	// #nosec G701 -- SQL template is constant and inputs are positional parameters.
 	result, err := h.DB.GetDB().ExecContext(r.Context(), `
-        UPDATE job_share_links
-        SET revoked_at = NOW()
-        WHERE job_id = $1 AND token = $2 AND revoked_at IS NULL
+	        UPDATE job_share_links
+	        SET revoked_at = NOW()
+	        WHERE job_id = $1 AND token = $2 AND revoked_at IS NULL
     `, jobID, token)
 	if err != nil {
 		if isUndefinedRelationError(err, "job_share_links") {
@@ -264,6 +268,7 @@ func (h *Handler) getSharedJobTasks(w http.ResponseWriter, r *http.Request, toke
 
 	var total int
 	countArgs := queries.Args[:len(queries.Args)-2]
+	// #nosec G701 -- count query is built from whitelisted sort/filter params and positional arguments are bound.
 	err = dbConn.QueryRowContext(r.Context(), queries.CountQuery, countArgs...).Scan(&total)
 	if err != nil {
 		if HandlePoolSaturation(w, r, err) {
@@ -274,6 +279,7 @@ func (h *Handler) getSharedJobTasks(w http.ResponseWriter, r *http.Request, toke
 		return
 	}
 
+	// #nosec G701 -- select query is built from whitelisted task params with bound variables.
 	rows, err := dbConn.QueryContext(r.Context(), queries.SelectQuery, queries.Args...)
 	if err != nil {
 		if HandlePoolSaturation(w, r, err) {

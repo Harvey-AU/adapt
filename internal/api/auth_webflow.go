@@ -37,7 +37,7 @@ func getWebflowRedirectURI() string {
 
 // WebflowTokenResponse represents the response from Webflow's token endpoint
 type WebflowTokenResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token"` // #nosec G117 -- expected OAuth access token response field
 	TokenType   string `json:"token_type"`
 	Scope       string `json:"scope"`
 	// Webflow doesn't always return expires_in or refresh_token in all flows, but normally standard OAuth
@@ -274,6 +274,7 @@ func (h *Handler) fetchWebflowAuthInfo(ctx context.Context, token string) (*Webf
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("accept", "application/json")
 
+	// #nosec G704 -- request URL is fixed Webflow introspection endpoint.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call introspect endpoint: %w", err)
@@ -400,6 +401,7 @@ func (h *Handler) fetchWebflowUserInfo(ctx context.Context, client *http.Client,
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("accept", "application/json")
 
+	// #nosec G704 -- request URL is fixed Webflow authorized_by endpoint.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call authorized_by endpoint: %w", err)

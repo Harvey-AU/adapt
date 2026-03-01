@@ -23,6 +23,15 @@ func (m *MockDB) GetDB() *sql.DB {
 	return args.Get(0).(*sql.DB)
 }
 
+// GetOrganizationBilling mocks retrieval of organisation billing details.
+func (m *MockDB) GetOrganizationBilling(ctx context.Context, orgID string, sandbox bool) (db.OrganizationBilling, error) {
+	args := m.Called(ctx, orgID, sandbox)
+	if args.Get(0) == nil {
+		return db.OrganizationBilling{}, args.Error(1)
+	}
+	return args.Get(0).(db.OrganizationBilling), args.Error(1)
+}
+
 // Close mocks the Close method for database connection cleanup
 func (m *MockDB) Close() error {
 	args := m.Called()

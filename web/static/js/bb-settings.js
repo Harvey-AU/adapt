@@ -1200,17 +1200,38 @@
     if (!confirm("Switch to this plan?")) return;
 
     try {
-      await window.dataBinder.fetchData("/v1/organisations/plan", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_id: planId }),
-      });
+      const response = await window.dataBinder.fetchData(
+        "/v1/billing/checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan_id: planId }),
+        }
+      );
+
+      if (response?.checkout_url) {
+        try {
+          const parsed = new URL(response.checkout_url);
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            throw new Error("Unsupported checkout URL scheme");
+          }
+
+          window.location.href = parsed.href;
+          return;
+        } catch (_err) {
+          showSettingsToast("error", "Invalid checkout URL returned");
+          console.error("Invalid checkout URL:", response.checkout_url);
+          return;
+        }
+      }
+
       showSettingsToast("success", "Plan updated");
-      loadPlansAndUsage();
+      await loadPlansAndUsage();
+      await loadBillingSection();
       window.BBQuota?.refresh();
     } catch (err) {
       console.error("Failed to switch plan:", err);
-      showSettingsToast("error", "Failed to switch plan");
+      showSettingsToast("error", err?.message || "Failed to switch plan");
     }
   }
 
@@ -1253,6 +1274,142 @@
       error.className = "settings-muted";
       error.textContent = "Failed to load usage history.";
       list.appendChild(error);
+    }
+  }
+
+  async function loadBillingSection() {
+    const planLabel = document.getElementById("billingPlanLabel");
+    const statusLabel = document.getElementById("billingStatusLabel");
+    const renewalLabel = document.getElementById("billingRenewalLabel");
+    const invoicesSummary = document.getElementById("billingInvoicesSummary");
+    const invoicesList = document.getElementById("billingInvoicesList");
+    const portalButton = document.getElementById("billingPortalButton");
+
+    if (invoicesList) {
+      invoicesList.innerHTML = "";
+    }
+
+    try {
+      const [billingResp, invoicesResp] = await Promise.all([
+        window.dataBinder.fetchData("/v1/billing"),
+        window.dataBinder.fetchData("/v1/billing/invoices"),
+      ]);
+
+      const billing = billingResp?.billing || {};
+      const invoices = Array.isArray(invoicesResp?.invoices)
+        ? invoicesResp.invoices
+        : [];
+
+      if (planLabel) {
+        const monthlyPrice = Number.isFinite(billing.monthly_price_cents)
+          ? billing.monthly_price_cents
+          : 0;
+        if (monthlyPrice > 0) {
+          planLabel.textContent = `Plan: ${
+            billing.plan_display_name || "Paid"
+          } ($${(monthlyPrice / 100).toFixed(0)}/month)`;
+        } else {
+          planLabel.textContent = `Plan: ${billing.plan_display_name || "Free"}`;
+        }
+      }
+
+      if (statusLabel) {
+        statusLabel.textContent = `Status: ${
+          billing.subscription_status || "inactive"
+        }`;
+      }
+
+      if (renewalLabel) {
+        if (billing.current_period_ends_at) {
+          renewalLabel.textContent = `Renews: ${new Date(
+            billing.current_period_ends_at
+          ).toLocaleDateString("en-AU")}`;
+        } else {
+          renewalLabel.textContent = "";
+        }
+      }
+
+      if (portalButton) {
+        const canManage =
+          settingsState.currentUserRole === "admin" &&
+          billing.billing_enabled &&
+          billing.has_customer_account;
+        portalButton.disabled = !canManage;
+      }
+
+      if (invoicesSummary) {
+        invoicesSummary.textContent =
+          invoices.length === 0
+            ? "No invoices available yet."
+            : `${invoices.length} invoice${
+                invoices.length === 1 ? "" : "s"
+              } available.`;
+      }
+
+      if (invoicesList) {
+        if (invoices.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "settings-muted";
+          empty.textContent =
+            "Invoices will appear here after your first payment.";
+          invoicesList.appendChild(empty);
+        } else {
+          invoices.forEach((invoice) => {
+            const row = document.createElement("div");
+            row.className = "settings-usage-row";
+
+            const left = document.createElement("span");
+            left.textContent = `${invoice.invoice_number || "Invoice"} - ${
+              invoice.billed_at || "Pending"
+            }`;
+
+            const right = document.createElement("span");
+            const cents = Number.isFinite(invoice.total_amount_cents)
+              ? invoice.total_amount_cents
+              : 0;
+            const currency = invoice.currency_code || "USD";
+            right.textContent = `${(cents / 100).toFixed(2)} ${currency}`;
+
+            row.appendChild(left);
+            row.appendChild(right);
+            invoicesList.appendChild(row);
+
+            if (invoice.invoice_available && invoice.invoice_url) {
+              let safeURL = "";
+              try {
+                const parsed = new URL(
+                  invoice.invoice_url,
+                  window.location.origin
+                );
+                if (
+                  parsed.protocol !== "http:" &&
+                  parsed.protocol !== "https:"
+                ) {
+                  throw new Error("unsupported protocol");
+                }
+                safeURL = parsed.href;
+              } catch (_err) {
+                return;
+              }
+              const link = document.createElement("a");
+              link.href = safeURL;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              link.className = "settings-muted";
+              link.textContent = "View invoice";
+              invoicesList.appendChild(link);
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load billing section:", err);
+      if (statusLabel) {
+        statusLabel.textContent = "Status: unavailable";
+      }
+      if (invoicesSummary) {
+        invoicesSummary.textContent = "Failed to load billing information.";
+      }
     }
   }
 
@@ -1474,6 +1631,7 @@
     await loadOrganisationInvites();
     await loadPlansAndUsage();
     await loadUsageHistory();
+    await loadBillingSection();
     await loadSettingsSchedules();
 
     if (window.loadSlackConnections) {
@@ -2280,6 +2438,48 @@
       }
       if (window.handleGoogleOAuthCallback) {
         window.handleGoogleOAuthCallback();
+      }
+
+      const billingPortalButton = document.getElementById(
+        "billingPortalButton"
+      );
+      if (billingPortalButton) {
+        billingPortalButton.addEventListener("click", async () => {
+          billingPortalButton.disabled = true;
+          try {
+            const response = await window.dataBinder.fetchData(
+              "/v1/billing/portal",
+              {
+                method: "POST",
+              }
+            );
+            if (response?.portal_url) {
+              try {
+                const parsed = new URL(
+                  response.portal_url,
+                  window.location.origin
+                );
+                if (!["http:", "https:"].includes(parsed.protocol)) {
+                  throw new Error("Unsupported billing portal URL protocol");
+                }
+                window.location.href = parsed.href;
+                return;
+              } catch (_err) {
+                showSettingsToast("error", "Invalid billing portal URL");
+                return;
+              }
+            }
+            showSettingsToast("error", "Billing portal URL unavailable");
+          } catch (err) {
+            console.error("Failed to open billing portal:", err);
+            showSettingsToast(
+              "error",
+              err?.message || "Failed to open billing portal"
+            );
+          } finally {
+            billingPortalButton.disabled = false;
+          }
+        });
       }
     } catch (error) {
       console.error("Failed to initialise settings:", error);

@@ -70,6 +70,7 @@ func ParseRobotsTxt(ctx context.Context, domain string, userAgent string) (*Robo
 	// Use the provided user agent
 	req.Header.Set("User-Agent", userAgent)
 
+	// #nosec G704 -- robots URL is derived from validated domain input with DNS/URL checks
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch robots.txt: %w", err)

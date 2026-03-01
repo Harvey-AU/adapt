@@ -21,49 +21,49 @@ func TestAugmentDSNWithTimeout(t *testing.T) {
 		},
 		{
 			name:      "URL format without params",
-			dsn:       "postgresql://user:pass@localhost/db",
+			dsn:       "postgresql://user:pass@localhost/db", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 60000,
 			expected:  "postgresql://user:pass@localhost/db?statement_timeout=60000",
 		},
 		{
 			name:      "URL format with existing params",
-			dsn:       "postgresql://user:pass@localhost/db?sslmode=require",
+			dsn:       "postgresql://user:pass@localhost/db?sslmode=require", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 60000,
 			expected:  "postgresql://user:pass@localhost/db?sslmode=require&statement_timeout=60000",
 		},
 		{
 			name:      "postgres URL format",
-			dsn:       "postgres://user:pass@localhost/db",
+			dsn:       "postgres://user:pass@localhost/db", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 30000,
 			expected:  "postgres://user:pass@localhost/db?statement_timeout=30000",
 		},
 		{
 			name:      "key=value format",
-			dsn:       "host=localhost user=user password=pass dbname=db",
+			dsn:       "host=localhost user=user password=pass dbname=db", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 45000,
 			expected:  "host=localhost user=user password=pass dbname=db statement_timeout=45000",
 		},
 		{
 			name:      "already has statement_timeout",
-			dsn:       "postgresql://user:pass@localhost/db?statement_timeout=30000",
+			dsn:       "postgresql://user:pass@localhost/db?statement_timeout=30000", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 60000,
 			expected:  "postgresql://user:pass@localhost/db?statement_timeout=30000",
 		},
 		{
 			name:      "key=value with existing timeout",
-			dsn:       "host=localhost statement_timeout=30000",
+			dsn:       "host=localhost statement_timeout=30000", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 60000,
 			expected:  "host=localhost statement_timeout=30000",
 		},
 		{
 			name:      "zero timeout uses default",
-			dsn:       "postgresql://user:pass@localhost/db",
+			dsn:       "postgresql://user:pass@localhost/db", // #nosec G101 -- test DSN fixture only
 			timeoutMs: 0,
 			expected:  "postgresql://user:pass@localhost/db?statement_timeout=60000",
 		},
 		{
 			name:      "negative timeout uses default",
-			dsn:       "postgresql://user:pass@localhost/db",
+			dsn:       "postgresql://user:pass@localhost/db", // #nosec G101 -- test DSN fixture only
 			timeoutMs: -1000,
 			expected:  "postgresql://user:pass@localhost/db?statement_timeout=60000",
 		},

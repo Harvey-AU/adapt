@@ -148,6 +148,9 @@ func TestJWTTokenExpiry(t *testing.T) {
 }
 
 func TestMissingAuthHeader(t *testing.T) {
+	secret := "test-secret-key-minimum-256-bits-long-for-hs256"
+	validBearerToken := createTestToken(secret, jwt.MapClaims{"sub": "user123"})
+
 	tests := []struct {
 		name          string
 		authHeader    string
@@ -157,14 +160,14 @@ func TestMissingAuthHeader(t *testing.T) {
 	}{
 		{
 			name:          "valid_bearer_token",
-			authHeader:    "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
-			expectedToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
+			authHeader:    "Bearer " + validBearerToken,
+			expectedToken: validBearerToken,
 			expectedError: false,
 			description:   "Valid Bearer token should be extracted",
 		},
 		{
 			name:          "missing_bearer_prefix",
-			authHeader:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
+			authHeader:    validBearerToken,
 			expectedToken: "",
 			expectedError: true,
 			description:   "Token without Bearer prefix should fail",

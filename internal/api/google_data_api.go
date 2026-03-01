@@ -135,7 +135,7 @@ type ga4RunReportResponse struct {
 
 // tokenRefreshResponse is the OAuth token refresh response
 type tokenRefreshResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token"` // #nosec G117 -- token response contains access token by design
 	ExpiresIn   int    `json:"expires_in"`
 	Scope       string `json:"scope"`
 	TokenType   string `json:"token_type"`
@@ -169,6 +169,7 @@ func (c *GA4Client) RefreshAccessToken(ctx context.Context, refreshToken string)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	// #nosec G704 -- OAuth token endpoint is fixed Google URL
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute token refresh request: %w", err)
@@ -335,6 +336,7 @@ func (c *GA4Client) fetchSingleDateRange(ctx context.Context, propertyID, startD
 		Int("offset", offset).
 		Msg("Fetching GA4 report for date range")
 
+	// #nosec G704 -- URL is constructed from validated GA4 property ID and fixed API path.
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute runReport request: %w", err)
